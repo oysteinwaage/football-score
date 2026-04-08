@@ -26,6 +26,7 @@ import { useCollection, useDocument } from '../hooks/useRealtimeDatabase'
 import { fetchFotballCalendar } from '../services/fotballCalendar'
 import { createMatch, deleteMatch, importFixtures } from '../services/matchService'
 import { MatchRecord, MatchStatus, TeamRecord, UserRole } from '../types/domain'
+import { getMatchOutcomeBackground, getMatchOutcomeForTeam } from '../utils/matchCardColors'
 
 export function TeamPage() {
   const { teamId = '' } = useParams()
@@ -123,6 +124,14 @@ export function TeamPage() {
     }
   }
 
+  const getFinishedMatchBackground = (match: MatchRecord) => {
+    if (match.clock.status !== MatchStatus.FINISHED) {
+      return 'background.paper'
+    }
+
+    return getMatchOutcomeBackground(getMatchOutcomeForTeam(match, team.name))
+  }
+
   return (
     <Stack spacing={3}>
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ justifyContent: 'space-between' }}>
@@ -204,7 +213,7 @@ export function TeamPage() {
                   key={match.id}
                   variant="outlined"
                   sx={{
-                    bgcolor: match.clock.status === MatchStatus.FINISHED ? 'grey.100' : 'background.paper',
+                    bgcolor: getFinishedMatchBackground(match),
                   }}
                 >
                   <CardContent>

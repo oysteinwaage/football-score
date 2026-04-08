@@ -2,6 +2,7 @@ export enum UserRole {
   FORELDER = 'FORELDER',
   ADMIN = 'ADMIN',
   KAMPLEDER = 'KAMPLEDER',
+  TRENER = 'TRENER',
 }
 
 export enum MatchStatus {

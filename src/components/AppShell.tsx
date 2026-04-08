@@ -42,7 +42,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     }
 
     const items = [
-      { label: 'Velkomst', icon: <HomeRoundedIcon />, href: '/' },
+      { label: 'Oversikt', icon: <HomeRoundedIcon />, href: '/' },
       { label: 'Lag', icon: <GroupsRoundedIcon />, href: profile.teamIds[0] ? `/teams/${profile.teamIds[0]}` : '/' },
     ]
 

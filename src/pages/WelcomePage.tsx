@@ -4,6 +4,7 @@ import PlayCircleFilledWhiteRoundedIcon from '@mui/icons-material/PlayCircleFill
 import SecurityRoundedIcon from '@mui/icons-material/SecurityRounded'
 import {
   Alert,
+  Button,
   Card,
   CardContent,
   Chip,
@@ -16,14 +17,19 @@ import { Link as RouterLink } from 'react-router-dom'
 
 import { useAuth } from '../context/AuthContext'
 import { useCollection } from '../hooks/useRealtimeDatabase'
-import { MatchRecord, MatchStatus, TeamRecord, UserRole } from '../types/domain'
+import { updateUserAccess } from '../services/userService'
+import { MatchRecord, MatchStatus, TeamRecord, UserProfile, UserRole } from '../types/domain'
+import { getMatchOutcomeBackground, getMatchOutcomeForTeam } from '../utils/matchCardColors'
 import { formatMatchTime, getLiveElapsedSeconds } from '../utils/matchClock'
 
 export function WelcomePage() {
   const { profile } = useAuth()
   const { data: teams } = useCollection<TeamRecord>('teams')
   const { data: matches } = useCollection<MatchRecord>('matches')
+  const { data: users } = useCollection<UserProfile>('users')
   const [currentTime, setCurrentTime] = useState(() => Date.now())
+  const [approvalSubmitting, setApprovalSubmitting] = useState(false)
+  const [approvalError, setApprovalError] = useState<string | null>(null)
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -49,14 +55,65 @@ export function WelcomePage() {
           match.clock.status !== MatchStatus.FINISHED,
       )
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0] ?? null
+  const activeTeam = activeMatch ? visibleTeams.find((team) => team.id === activeMatch.teamId) ?? null : null
+  const pendingApprovalUser = isAdmin
+    ? users
+        .filter((user) => !user.approved)
+        .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0] ?? null
+    : null
 
   if (!profile) {
     return null
   }
-console.log("profile", profile)
+
+  const handleApproveUser = async () => {
+    if (!pendingApprovalUser) {
+      return
+    }
+
+    setApprovalSubmitting(true)
+    setApprovalError(null)
+
+    try {
+      await updateUserAccess(pendingApprovalUser.id, {
+        approved: true,
+        roles: pendingApprovalUser.roles,
+        teamIds: pendingApprovalUser.teamIds,
+      })
+    } catch (error) {
+      setApprovalError(error instanceof Error ? error.message : 'Kunne ikke godkjenne brukeren.')
+    } finally {
+      setApprovalSubmitting(false)
+    }
+  }
 
   return (
     <Stack spacing={3}>
+      {pendingApprovalUser && (
+        <Alert
+          severity="info"
+          action={
+            <Button
+              color="inherit"
+              size="small"
+              variant="outlined"
+              disabled={approvalSubmitting}
+              onClick={() => void handleApproveUser()}
+            >
+              {approvalSubmitting ? 'Godkjenner...' : 'Godkjenn bruker'}
+            </Button>
+          }
+        >
+          <Stack spacing={0.5}>
+            <Typography variant="subtitle2">Ny bruker venter på godkjenning</Typography>
+            <Typography variant="body2">
+              {pendingApprovalUser.parentName} har registrert seg for {pendingApprovalUser.childName}
+              {pendingApprovalUser.email ? ` (${pendingApprovalUser.email})` : ''}.
+            </Typography>
+          </Stack>
+        </Alert>
+      )}
+      {approvalError && <Alert severity="error">{approvalError}</Alert>}
       <Card>
         <CardContent>
           <Stack spacing={2}>
@@ -80,7 +137,9 @@ console.log("profile", profile)
           sx={{
             textDecoration: 'none',
             color: 'inherit',
-            background: 'linear-gradient(135deg, #e3f2fd 0%, #f5f9ff 100%)',
+            bgcolor: activeTeam
+              ? getMatchOutcomeBackground(getMatchOutcomeForTeam(activeMatch, activeTeam.name))
+              : 'grey.100',
           }}
         >
           <CardContent>
