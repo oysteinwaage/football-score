@@ -121,9 +121,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             </IconButton>
           )}
           <Box>
-            <Typography variant="h6">Football Score</Typography>
+            <Typography variant="h6">Football Score - VASK G2016</Typography>
             <Typography variant="body2" color="text.secondary">
-              {profile?.approved ? 'Innlogget område' : 'Registrering og godkjenning'}
+              {profile?.approved ? '' : 'Registrering og godkjenning'}
             </Typography>
           </Box>
         </Toolbar>

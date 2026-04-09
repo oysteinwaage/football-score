@@ -1,14 +1,10 @@
-import AccessTimeRoundedIcon from '@mui/icons-material/AccessTimeRounded'
-import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded'
 import PlayCircleFilledWhiteRoundedIcon from '@mui/icons-material/PlayCircleFilledWhiteRounded'
-import SecurityRoundedIcon from '@mui/icons-material/SecurityRounded'
 import {
   Alert,
   Button,
   Card,
   CardContent,
   Chip,
-  Grid,
   Stack,
   Typography,
 } from '@mui/material'
@@ -21,6 +17,21 @@ import { updateUserAccess } from '../services/userService'
 import { MatchRecord, MatchStatus, TeamRecord, UserProfile, UserRole } from '../types/domain'
 import { getMatchOutcomeBackground, getMatchOutcomeForTeam } from '../utils/matchCardColors'
 import { formatMatchTime, getLiveElapsedSeconds } from '../utils/matchClock'
+
+function formatDaysUntilMatch(startsAt: string, currentTime: number): string {
+  const now = new Date(currentTime)
+  const matchDate = new Date(startsAt)
+
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const startOfMatchDay = new Date(matchDate.getFullYear(), matchDate.getMonth(), matchDate.getDate())
+  const daysUntil = Math.round((startOfMatchDay.getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24))
+
+  if (daysUntil <= 0) {
+    return 'I dag'
+  }
+
+  return `${daysUntil} dag${daysUntil === 1 ? '' : 'er'} til`
+}
 
 export function WelcomePage() {
   const { profile } = useAuth()
@@ -56,6 +67,21 @@ export function WelcomePage() {
       )
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0] ?? null
   const activeTeam = activeMatch ? visibleTeams.find((team) => team.id === activeMatch.teamId) ?? null : null
+  const upcomingMatchesByTeam = visibleTeams
+    .map((team) => {
+      const upcomingMatch =
+        matches
+          .filter(
+            (match) =>
+              match.teamId === team.id &&
+              match.clock.status === MatchStatus.SCHEDULED &&
+              new Date(match.startsAt).getTime() >= currentTime,
+          )
+          .sort((left, right) => left.startsAt.localeCompare(right.startsAt))[0] ?? null
+
+      return upcomingMatch ? { team, match: upcomingMatch } : null
+    })
+    .filter((entry): entry is { team: TeamRecord; match: MatchRecord } => entry !== null)
   const pendingApprovalUser = isAdmin
     ? users
         .filter((user) => !user.approved)
@@ -198,41 +224,29 @@ export function WelcomePage() {
         </CardContent>
       </Card>
 
-      <Grid container spacing={2}>
-        <Grid size={{ xs: 12, md: 4 }}>
-          <Card>
-            <CardContent>
-              <Stack spacing={1}>
-                <GroupsRoundedIcon color="primary" />
-                <Typography variant="h6">Lagtilganger</Typography>
-                <Typography variant="h3">{visibleTeams.length}</Typography>
-              </Stack>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid size={{ xs: 12, md: 4 }}>
-          <Card>
-            <CardContent>
-              <Stack spacing={1}>
-                <SecurityRoundedIcon color="primary" />
-                <Typography variant="h6">Godkjent status</Typography>
-                <Typography variant="h3">Ja</Typography>
-              </Stack>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid size={{ xs: 12, md: 4 }}>
-          <Card>
-            <CardContent>
-              <Stack spacing={1}>
-                <AccessTimeRoundedIcon color="primary" />
-                <Typography variant="h6">Barn registrert</Typography>
-                <Typography variant="h3">{profile.childName}</Typography>
-              </Stack>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+      {upcomingMatchesByTeam.length > 0 && (
+        <Stack spacing={2}>
+          {upcomingMatchesByTeam.map(({ team, match }) => (
+            <Card key={team.id} component={RouterLink} to={`/matches/${match.id}`} sx={{ textDecoration: 'none', color: 'inherit' }}>
+              <CardContent>
+                <Stack spacing={1.5}>
+                  <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+                    <Typography variant="h5">Neste kamp</Typography>
+                    <Chip label={team.name} color="secondary" variant="outlined" />
+                    <Chip label={formatDaysUntilMatch(match.startsAt, currentTime)} color="primary" variant="outlined" />
+                  </Stack>
+                  <Typography variant="h6">
+                    {match.homeTeam} - {match.awayTeam}
+                  </Typography>
+                  <Typography color="text.secondary">
+                    {new Date(match.startsAt).toLocaleString('nb-NO')} · {match.location || 'Sted ikke satt'}
+                  </Typography>
+                </Stack>
+              </CardContent>
+            </Card>
+          ))}
+        </Stack>
+      )}
     </Stack>
   )
 }
