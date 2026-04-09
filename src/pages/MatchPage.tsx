@@ -1,4 +1,5 @@
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
+import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import FlagRoundedIcon from '@mui/icons-material/FlagRounded'
 import PauseCircleRoundedIcon from '@mui/icons-material/PauseCircleRounded'
 import PlayCircleRoundedIcon from '@mui/icons-material/PlayCircleRounded'
@@ -11,11 +12,14 @@ import {
   CardContent,
   Chip,
   Grid,
+  IconButton,
   List,
   ListItem,
+  ListItemSecondaryAction,
   ListItemText,
   Stack,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material'
 import { useEffect, useMemo, useState } from 'react'
@@ -53,7 +57,7 @@ export function MatchPage() {
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
-  const canManage = Boolean(profile?.roles.some((role) => role === UserRole.ADMIN || role === UserRole.KAMPLEDER))
+  const canManage = Boolean(profile?.roles.some((role) => role === UserRole.ADMIN || role === UserRole.KAMPLEDER || role === UserRole.TRENER))
   const hasAccess = Boolean(profile && (profile.roles.includes(UserRole.ADMIN) || (match && profile.teamIds.includes(match.teamId))))
 
   useEffect(() => {
@@ -179,6 +183,15 @@ export function MatchPage() {
     }
   }
 
+  const removeGoalEvent = async (eventId: string) => {
+    const nextEvents = match.events.filter((e) => e.id !== eventId)
+    const nextScore = {
+      home: nextEvents.filter((e) => e.type === MatchEventType.GOAL_HOME).length,
+      away: nextEvents.filter((e) => e.type === MatchEventType.GOAL_AWAY).length,
+    }
+    await persistMatch({ ...match, events: nextEvents, score: nextScore }, 'Målhendelsen er fjernet.')
+  }
+
   const isScheduled = match.clock.status === MatchStatus.SCHEDULED
   const isFirstHalf = match.clock.status === MatchStatus.FIRST_HALF
   const isHalfTime = match.clock.status === MatchStatus.HALF_TIME
@@ -283,14 +296,26 @@ export function MatchPage() {
               <Alert severity="info">Ingen hendelser registrert ennå.</Alert>
             ) : (
               <List disablePadding>
-                {sortedEvents.map((event) => (
-                  <ListItem key={event.id} divider disableGutters>
-                    <ListItemText
-                      primary={event.text}
-                      secondary={`${formatMatchTime(event.matchSecond)} · ${new Date(event.createdAt).toLocaleTimeString('nb-NO')}`}
-                    />
-                  </ListItem>
-                ))}
+                {sortedEvents.map((event) => {
+                  const isGoal = event.type === MatchEventType.GOAL_HOME || event.type === MatchEventType.GOAL_AWAY
+                  return (
+                    <ListItem key={event.id} divider disableGutters sx={{ pr: canManage && isGoal ? 6 : 0 }}>
+                      <ListItemText
+                        primary={event.text}
+                        secondary={`${formatMatchTime(event.matchSecond)} · ${new Date(event.createdAt).toLocaleTimeString('nb-NO')}`}
+                      />
+                      {canManage && isGoal && (
+                        <ListItemSecondaryAction>
+                          <Tooltip title="Fjern målhendelse">
+                            <IconButton edge="end" size="small" color="error" onClick={() => void removeGoalEvent(event.id)}>
+                              <DeleteRoundedIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </ListItemSecondaryAction>
+                      )}
+                    </ListItem>
+                  )
+                })}
               </List>
             )}
           </Stack>
