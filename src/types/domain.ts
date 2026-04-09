@@ -77,6 +77,8 @@ export interface MatchRecord {
   score: MatchScore
   clock: MatchClock
   events: MatchEvent[]
+  playerNames: string[]
+  coachNames: string[]
   createdAt: string
   updatedAt: string
   externalSourceId?: string

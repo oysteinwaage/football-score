@@ -25,10 +25,11 @@ import {
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 
+import { RosterCard } from '../components/RosterCard'
 import { useAuth } from '../context/AuthContext'
 import { useDocument } from '../hooks/useRealtimeDatabase'
 import { updateMatch } from '../services/matchService'
-import { MatchEvent, MatchEventType, MatchRecord, MatchStatus, UserRole } from '../types/domain'
+import { MatchEvent, MatchEventType, MatchRecord, MatchStatus, TeamRecord, UserRole } from '../types/domain'
 import { formatMatchTime, getLiveElapsedSeconds } from '../utils/matchClock'
 
 function createEvent(
@@ -51,6 +52,7 @@ export function MatchPage() {
   const { matchId = '' } = useParams()
   const { profile } = useAuth()
   const { data: match, loading, error } = useDocument<MatchRecord>(matchId ? `matches/${matchId}` : null)
+  const { data: team } = useDocument<TeamRecord>(match ? `teams/${match.teamId}` : null)
   const [clockSeconds, setClockSeconds] = useState(0)
   const [homeScorer, setHomeScorer] = useState('')
   const [awayScorer, setAwayScorer] = useState('')
@@ -58,6 +60,7 @@ export function MatchPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const canManage = Boolean(profile?.roles.some((role) => role === UserRole.ADMIN || role === UserRole.KAMPLEDER || role === UserRole.TRENER))
+  const canEditRoster = Boolean(profile?.roles.some((role) => role === UserRole.ADMIN || role === UserRole.TRENER))
   const hasAccess = Boolean(profile && (profile.roles.includes(UserRole.ADMIN) || (match && profile.teamIds.includes(match.teamId))))
 
   useEffect(() => {
@@ -192,6 +195,28 @@ export function MatchPage() {
     await persistMatch({ ...match, events: nextEvents, score: nextScore }, 'Målhendelsen er fjernet.')
   }
 
+  const matchPlayerNames = match.playerNames ?? []
+  const matchCoachNames = match.coachNames ?? []
+
+  const handleRemoveMatchCoach = async (name: string) => {
+    await persistMatch({ ...match, coachNames: matchCoachNames.filter((c) => c !== name) }, 'Trener fjernet fra kampen.')
+  }
+
+  const handleAddMatchCoach = async (name: string) => {
+    await persistMatch({ ...match, coachNames: [...matchCoachNames, name] }, 'Trener lagt til på kampen.')
+  }
+
+  const handleRemoveMatchPlayer = async (name: string) => {
+    await persistMatch({ ...match, playerNames: matchPlayerNames.filter((p) => p !== name) }, 'Spiller fjernet fra kampen.')
+  }
+
+  const handleAddMatchPlayer = async (name: string) => {
+    await persistMatch({ ...match, playerNames: [...matchPlayerNames, name] }, 'Spiller lagt til på kampen.')
+  }
+
+  const coachSuggestions = (team?.coachNames ?? []).filter((name) => !matchCoachNames.includes(name))
+  const playerSuggestions = (team?.playerNames ?? []).filter((name) => !matchPlayerNames.includes(name))
+
   const isScheduled = match.clock.status === MatchStatus.SCHEDULED
   const isFirstHalf = match.clock.status === MatchStatus.FIRST_HALF
   const isHalfTime = match.clock.status === MatchStatus.HALF_TIME
@@ -284,6 +309,31 @@ export function MatchPage() {
                 </Stack>
               </CardContent>
             </Card>
+          </Grid>
+        </Grid>
+      )}
+
+      {canEditRoster && (
+        <Grid container spacing={3}>
+          <Grid size={{ xs: 12, md: 6 }}>
+            <RosterCard
+              title="Trenere"
+              names={matchCoachNames}
+              canEdit={canEditRoster}
+              suggestions={coachSuggestions}
+              onRemove={handleRemoveMatchCoach}
+              onAdd={handleAddMatchCoach}
+            />
+          </Grid>
+          <Grid size={{ xs: 12, md: 6 }}>
+            <RosterCard
+              title="Spillere"
+              names={matchPlayerNames}
+              canEdit={canEditRoster}
+              suggestions={playerSuggestions}
+              onRemove={handleRemoveMatchPlayer}
+              onAdd={handleAddMatchPlayer}
+            />
           </Grid>
         </Grid>
       )}

@@ -59,6 +59,14 @@ export async function addMatchReferenceToTeam(teamId: string, matchId: string): 
   })
 }
 
+export async function updateTeamRoster(teamId: string, playerNames: string[], coachNames: string[]): Promise<void> {
+  await update(ref(requireDatabase(), `teams/${teamId}`), {
+    playerNames,
+    coachNames,
+    updatedAt: new Date().toISOString(),
+  })
+}
+
 export async function removeMatchReferenceFromTeam(teamId: string, matchId: string): Promise<void> {
   const db = requireDatabase()
   const teamPath = ref(db, `teams/${teamId}`)

@@ -1,7 +1,7 @@
-import { push, ref, remove, set, update } from 'firebase/database'
+import { get, push, ref, remove, set, update } from 'firebase/database'
 
 import { database, firebaseConfigError } from '../firebase/config'
-import { ImportedFixture, MatchRecord, MatchStatus } from '../types/domain'
+import { ImportedFixture, MatchRecord, MatchStatus, TeamRecord } from '../types/domain'
 import { addMatchReferenceToTeam, removeMatchReferenceFromTeam } from './teamService'
 
 function requireDatabase() {
@@ -54,6 +54,9 @@ export async function createMatch(input: CreateMatchInput): Promise<MatchRecord>
     throw new Error('Kunne ikke opprette kamp-ID.')
   }
 
+  const teamSnapshot = await get(ref(db, `teams/${input.teamId}`))
+  const teamData = teamSnapshot.val() as TeamRecord | null
+
   const now = new Date().toISOString()
   const match: MatchRecord = {
     id,
@@ -69,6 +72,8 @@ export async function createMatch(input: CreateMatchInput): Promise<MatchRecord>
       startedAt: null,
     },
     events: [],
+    playerNames: teamData?.playerNames ?? [],
+    coachNames: teamData?.coachNames ?? [],
     createdAt: now,
     updatedAt: now,
     externalSourceId: input.externalSourceId,

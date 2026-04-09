@@ -6,7 +6,6 @@ import {
   Button,
   Card,
   CardContent,
-  Chip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -21,10 +20,12 @@ import { useMemo, useState } from 'react'
 import { Link as RouterLink, useParams } from 'react-router-dom'
 
 import { ManualMatchDialog, ManualMatchValues } from '../components/ManualMatchDialog'
+import { RosterCard } from '../components/RosterCard'
 import { useAuth } from '../context/AuthContext'
 import { useCollection, useDocument } from '../hooks/useRealtimeDatabase'
 import { fetchFotballCalendar } from '../services/fotballCalendar'
 import { createMatch, deleteMatch, importFixtures } from '../services/matchService'
+import { updateTeamRoster } from '../services/teamService'
 import { MatchRecord, MatchStatus, TeamRecord, UserRole } from '../types/domain'
 import { getMatchOutcomeBackground, getMatchOutcomeForTeam } from '../utils/matchCardColors'
 
@@ -42,6 +43,7 @@ export function TeamPage() {
   const [deletingMatch, setDeletingMatch] = useState(false)
 
   const canManage = Boolean(profile?.roles.some((role) => role === UserRole.ADMIN || role === UserRole.KAMPLEDER))
+  const canEditRoster = Boolean(profile?.roles.some((role) => role === UserRole.ADMIN || role === UserRole.TRENER))
   const isAdmin = Boolean(profile?.roles.includes(UserRole.ADMIN))
   const hasAccess = Boolean(profile && (isAdmin || profile.teamIds.includes(teamId)))
 
@@ -124,6 +126,22 @@ export function TeamPage() {
     }
   }
 
+  const handleRemoveCoach = async (name: string) => {
+    await updateTeamRoster(teamId, team.playerNames, team.coachNames.filter((c) => c !== name))
+  }
+
+  const handleAddCoach = async (name: string) => {
+    await updateTeamRoster(teamId, team.playerNames, [...team.coachNames, name])
+  }
+
+  const handleRemovePlayer = async (name: string) => {
+    await updateTeamRoster(teamId, team.playerNames.filter((p) => p !== name), team.coachNames)
+  }
+
+  const handleAddPlayer = async (name: string) => {
+    await updateTeamRoster(teamId, [...team.playerNames, name], team.coachNames)
+  }
+
   const getFinishedMatchBackground = (match: MatchRecord) => {
     if (match.clock.status !== MatchStatus.FINISHED) {
       return 'background.paper'
@@ -153,28 +171,22 @@ export function TeamPage() {
 
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, lg: 4 }}>
-          <Card>
-            <CardContent>
-              <Stack spacing={2}>
-                <Typography variant="h6">Trenere</Typography>
-                <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
-                  {team.coachNames.map((coach) => <Chip key={coach} label={coach} />)}
-                </Stack>
-              </Stack>
-            </CardContent>
-          </Card>
+          <RosterCard
+            title="Trenere"
+            names={team.coachNames}
+            canEdit={canEditRoster}
+            onRemove={handleRemoveCoach}
+            onAdd={handleAddCoach}
+          />
         </Grid>
         <Grid size={{ xs: 12, lg: 4 }}>
-          <Card>
-            <CardContent>
-              <Stack spacing={2}>
-                <Typography variant="h6">Spillere</Typography>
-                <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
-                  {team.playerNames.map((player) => <Chip key={player} label={player} />)}
-                </Stack>
-              </Stack>
-            </CardContent>
-          </Card>
+          <RosterCard
+            title="Spillere"
+            names={team.playerNames}
+            canEdit={canEditRoster}
+            onRemove={handleRemovePlayer}
+            onAdd={handleAddPlayer}
+          />
         </Grid>
         {isAdmin &&
             <Grid size={{ xs: 12, lg: 4 }}>
