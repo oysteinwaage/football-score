@@ -1,5 +1,7 @@
 import MenuIcon from '@mui/icons-material/Menu'
 import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSettingsRounded'
+import ExpandLessRoundedIcon from '@mui/icons-material/ExpandLessRounded'
+import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded'
 import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded'
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded'
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded'
@@ -8,6 +10,7 @@ import {
   AppBar,
   Avatar,
   Box,
+  Collapse,
   Divider,
   Drawer,
   IconButton,
@@ -21,30 +24,42 @@ import {
   useMediaQuery,
 } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
-import { ReactNode, useMemo, useState } from 'react'
+import { onValue, ref } from 'firebase/database'
+import { ReactNode, useEffect, useMemo, useState } from 'react'
 import { Link as RouterLink, useLocation } from 'react-router-dom'
 
 import { useAuth } from '../context/AuthContext'
-import { UserRole } from '../types/domain'
+import { database } from '../firebase/config'
+import { TeamRecord, UserRole } from '../types/domain'
 
 const drawerWidth = 280
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [lagOpen, setLagOpen] = useState(false)
+  const [teamNames, setTeamNames] = useState<Record<string, string>>({})
   const location = useLocation()
   const theme = useTheme()
   const isDesktop = useMediaQuery(theme.breakpoints.up('md'))
   const { profile, signOutUser } = useAuth()
+
+  useEffect(() => {
+    if (!database || !profile?.teamIds?.length) return
+    const unsubscribers = profile.teamIds.map((teamId) =>
+      onValue(ref(database!, `teams/${teamId}`), (snapshot) => {
+        const team = snapshot.val() as TeamRecord | null
+        if (team) setTeamNames((prev) => ({ ...prev, [teamId]: team.name }))
+      }),
+    )
+    return () => unsubscribers.forEach((unsub) => unsub())
+  }, [profile?.teamIds])
 
   const navigationItems = useMemo(() => {
     if (!profile?.approved) {
       return []
     }
 
-    const items = [
-      { label: 'Oversikt', icon: <HomeRoundedIcon />, href: '/' },
-      { label: 'Lag', icon: <GroupsRoundedIcon />, href: profile.teamIds[0] ? `/teams/${profile.teamIds[0]}` : '/' },
-    ]
+    const items = [{ label: 'Oversikt', icon: <HomeRoundedIcon />, href: '/' }]
 
     if (profile.roles.includes(UserRole.ADMIN)) {
       items.push({ label: 'Admin', icon: <AdminPanelSettingsRoundedIcon />, href: '/admin' })
@@ -83,6 +98,47 @@ export function AppShell({ children }: { children: ReactNode }) {
             <ListItemText primary={item.label} />
           </ListItemButton>
         ))}
+        {profile?.approved && profile.teamIds.length === 1 && (
+          <ListItemButton
+            component={RouterLink}
+            to={`/teams/${profile.teamIds[0]}`}
+            selected={location.pathname === `/teams/${profile.teamIds[0]}`}
+            onClick={() => setMobileOpen(false)}
+            sx={{ borderRadius: 3, mb: 0.5 }}
+          >
+            <ListItemIcon>
+              <GroupsRoundedIcon />
+            </ListItemIcon>
+            <ListItemText primary="Lag" />
+          </ListItemButton>
+        )}
+        {profile?.approved && profile.teamIds.length > 1 && (
+          <>
+            <ListItemButton onClick={() => setLagOpen(!lagOpen)} sx={{ borderRadius: 3, mb: 0.5 }}>
+              <ListItemIcon>
+                <GroupsRoundedIcon />
+              </ListItemIcon>
+              <ListItemText primary="Lag" />
+              {lagOpen ? <ExpandLessRoundedIcon /> : <ExpandMoreRoundedIcon />}
+            </ListItemButton>
+            <Collapse in={lagOpen} timeout="auto">
+              <List disablePadding sx={{ pl: 2 }}>
+                {profile.teamIds.map((teamId) => (
+                  <ListItemButton
+                    key={teamId}
+                    component={RouterLink}
+                    to={`/teams/${teamId}`}
+                    selected={location.pathname === `/teams/${teamId}`}
+                    onClick={() => setMobileOpen(false)}
+                    sx={{ borderRadius: 3, mb: 0.5 }}
+                  >
+                    <ListItemText primary={teamNames[teamId] ?? teamId} />
+                  </ListItemButton>
+                ))}
+              </List>
+            </Collapse>
+          </>
+        )}
       </List>
       <Divider />
       <Box sx={{ p: 2 }}>
