@@ -8,6 +8,7 @@ import {
   Stack,
   Typography,
 } from '@mui/material'
+
 import { useEffect, useState } from 'react'
 import { Link as RouterLink } from 'react-router-dom'
 
@@ -140,22 +141,6 @@ export function WelcomePage() {
         </Alert>
       )}
       {approvalError && <Alert severity="error">{approvalError}</Alert>}
-      <Card>
-        <CardContent>
-          <Stack spacing={2}>
-            <Typography variant="h4">Hei, {profile.parentName}</Typography>
-            <Typography color="text.secondary">
-              Herfra kan du navigere til lag, kamper og administrasjon basert på rollene dine.
-            </Typography>
-            <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
-              {profile.roles.map((role) => (
-                <Chip key={role} label={role} color={role === UserRole.ADMIN ? 'primary' : 'default'} />
-              ))}
-            </Stack>
-          </Stack>
-        </CardContent>
-      </Card>
-
       {activeMatch && (
         <Card
           component={RouterLink}

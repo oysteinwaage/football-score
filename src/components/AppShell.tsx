@@ -179,7 +179,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           <Box>
             <Typography variant="h6">Football Score - VASK G2016</Typography>
             <Typography variant="body2" color="text.secondary">
-              {profile?.approved ? '' : 'Registrering og godkjenning'}
+              {profile?.approved
+                ? `${profile.parentName} (${profile.roles.map((r) => r.charAt(0).toUpperCase() + r.slice(1).toLowerCase()).join(', ')})`
+                : 'Registrering og godkjenning'}
             </Typography>
           </Box>
         </Toolbar>
