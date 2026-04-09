@@ -24,7 +24,7 @@ import { RosterCard } from '../components/RosterCard'
 import { useAuth } from '../context/AuthContext'
 import { useCollection, useDocument } from '../hooks/useRealtimeDatabase'
 import { fetchFotballCalendar } from '../services/fotballCalendar'
-import { createMatch, deleteMatch, importFixtures } from '../services/matchService'
+import { createMatch, deleteMatch, importFixtures, updateMatch } from '../services/matchService'
 import { updateTeamRoster } from '../services/teamService'
 import { MatchRecord, MatchStatus, TeamRecord, UserRole } from '../types/domain'
 import { getMatchOutcomeBackground, getMatchOutcomeForTeam } from '../utils/matchCardColors'
@@ -126,20 +126,38 @@ export function TeamPage() {
     }
   }
 
+  const scheduledMatches = teamMatches.filter((m) => m.clock.status === MatchStatus.SCHEDULED)
+
   const handleRemoveCoach = async (name: string) => {
     await updateTeamRoster(teamId, team.playerNames, team.coachNames.filter((c) => c !== name))
+    await Promise.all(
+      scheduledMatches.map((m) => updateMatch(m.id, { coachNames: (m.coachNames ?? []).filter((c) => c !== name) })),
+    )
   }
 
   const handleAddCoach = async (name: string) => {
     await updateTeamRoster(teamId, team.playerNames, [...team.coachNames, name])
+    await Promise.all(
+      scheduledMatches
+        .filter((m) => !(m.coachNames ?? []).includes(name))
+        .map((m) => updateMatch(m.id, { coachNames: [...(m.coachNames ?? []), name] })),
+    )
   }
 
   const handleRemovePlayer = async (name: string) => {
     await updateTeamRoster(teamId, team.playerNames.filter((p) => p !== name), team.coachNames)
+    await Promise.all(
+      scheduledMatches.map((m) => updateMatch(m.id, { playerNames: (m.playerNames ?? []).filter((p) => p !== name) })),
+    )
   }
 
   const handleAddPlayer = async (name: string) => {
     await updateTeamRoster(teamId, [...team.playerNames, name], team.coachNames)
+    await Promise.all(
+      scheduledMatches
+        .filter((m) => !(m.playerNames ?? []).includes(name))
+        .map((m) => updateMatch(m.id, { playerNames: [...(m.playerNames ?? []), name] })),
+    )
   }
 
   const getFinishedMatchBackground = (match: MatchRecord) => {
