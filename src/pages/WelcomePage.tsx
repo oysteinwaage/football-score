@@ -61,16 +61,14 @@ export function WelcomePage() {
       : teams.filter((team) => profile.teamIds.includes(team.id))
     : []
   const visibleTeamIds = new Set(visibleTeams.map((team) => team.id))
-  const activeMatch =
-    matches
-      .filter(
-        (match) =>
-          visibleTeamIds.has(match.teamId) &&
-          match.clock.status !== MatchStatus.SCHEDULED &&
-          match.clock.status !== MatchStatus.FINISHED,
-      )
-      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0] ?? null
-  const activeTeam = activeMatch ? visibleTeams.find((team) => team.id === activeMatch.teamId) ?? null : null
+  const activeMatches = matches
+    .filter(
+      (match) =>
+        visibleTeamIds.has(match.teamId) &&
+        match.clock.status !== MatchStatus.SCHEDULED &&
+        match.clock.status !== MatchStatus.FINISHED,
+    )
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
   const upcomingMatchesByTeam = visibleTeams
     .map((team) => {
       const upcomingMatch =
@@ -188,48 +186,76 @@ export function WelcomePage() {
         </Alert>
       )}
       {approvalError && <Alert severity="error">{approvalError}</Alert>}
-      {activeMatch && (
-        <Card
-          component={RouterLink}
-          to={`/matches/${activeMatch.id}`}
-          sx={{
-            textDecoration: 'none',
-            color: 'inherit',
-            bgcolor: activeTeam
-              ? getMatchOutcomeBackground(getMatchOutcomeForTeam(activeMatch, activeTeam.name))
-              : 'grey.100',
-          }}
-        >
-          <CardContent>
-            <Stack spacing={2}>
-              <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-                <Chip
-                  icon={<PlayCircleFilledWhiteRoundedIcon />}
-                  label="Pågående kamp"
-                  color="warning"
-                  sx={{
-                    '@keyframes pulse': {
-                      '0%, 100%': { opacity: 1 },
-                      '50%': { opacity: 0.45 },
-                    },
-                    animation: 'pulse 1.2s ease-in-out infinite',
-                  }}
-                />
-              </Stack>
-              <Typography variant="h6">
-                {activeMatch.homeTeam} - {activeMatch.awayTeam}
-              </Typography>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                <Typography color="text.secondary">
-                  Klokke: {formatMatchTime(getLiveElapsedSeconds(activeMatch.clock, new Date(currentTime)))}
+      {activeMatches.map((activeMatch) => {
+        const activeTeam = visibleTeams.find((team) => team.id === activeMatch.teamId) ?? null
+        return (
+          <Card
+            key={activeMatch.id}
+            component={RouterLink}
+            to={`/matches/${activeMatch.id}`}
+            sx={{
+              textDecoration: 'none',
+              color: 'inherit',
+              bgcolor: activeTeam
+                ? getMatchOutcomeBackground(getMatchOutcomeForTeam(activeMatch, activeTeam.name))
+                : 'grey.100',
+            }}
+          >
+            <CardContent>
+              <Stack spacing={2}>
+                <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+                  <Chip
+                    icon={<PlayCircleFilledWhiteRoundedIcon />}
+                    label="Pågående kamp"
+                    color="warning"
+                    sx={{
+                      '@keyframes pulse': {
+                        '0%, 100%': { opacity: 1 },
+                        '50%': { opacity: 0.45 },
+                      },
+                      animation: 'pulse 1.2s ease-in-out infinite',
+                    }}
+                  />
+                </Stack>
+                <Typography variant="h6">
+                  {activeMatch.homeTeam} - {activeMatch.awayTeam}
                 </Typography>
-                <Typography color="text.secondary">
-                  Stilling: {activeMatch.score.home} - {activeMatch.score.away}
-                </Typography>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                  <Typography color="text.secondary">
+                    Klokke: {formatMatchTime(getLiveElapsedSeconds(activeMatch.clock, new Date(currentTime)))}
+                  </Typography>
+                  <Typography color="text.secondary">
+                    Stilling: {activeMatch.score.home} - {activeMatch.score.away}
+                  </Typography>
+                </Stack>
               </Stack>
-            </Stack>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )
+      })}
+
+      {upcomingMatchesByTeam.length > 0 && (
+        <Stack spacing={2}>
+          {upcomingMatchesByTeam.map(({ team, match }) => (
+            <Card key={team.id} component={RouterLink} to={`/matches/${match.id}`} sx={{ textDecoration: 'none', color: 'inherit' }}>
+              <CardContent>
+                <Stack spacing={1.5}>
+                  <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+                    <Typography variant="h5">Neste kamp</Typography>
+                    <Chip label={team.name} color="secondary" variant="outlined" />
+                    <Chip label={formatDaysUntilMatch(match.startsAt, currentTime)} color="primary" variant="outlined" />
+                  </Stack>
+                  <Typography variant="h6">
+                    {match.homeTeam} - {match.awayTeam}
+                  </Typography>
+                  <Typography color="text.secondary">
+                    {new Date(match.startsAt).toLocaleString('nb-NO')} · {match.location || 'Sted ikke satt'}
+                  </Typography>
+                </Stack>
+              </CardContent>
+            </Card>
+          ))}
+        </Stack>
       )}
 
       <Card>
@@ -255,30 +281,6 @@ export function WelcomePage() {
           </Stack>
         </CardContent>
       </Card>
-
-      {upcomingMatchesByTeam.length > 0 && (
-        <Stack spacing={2}>
-          {upcomingMatchesByTeam.map(({ team, match }) => (
-            <Card key={team.id} component={RouterLink} to={`/matches/${match.id}`} sx={{ textDecoration: 'none', color: 'inherit' }}>
-              <CardContent>
-                <Stack spacing={1.5}>
-                  <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-                    <Typography variant="h5">Neste kamp</Typography>
-                    <Chip label={team.name} color="secondary" variant="outlined" />
-                    <Chip label={formatDaysUntilMatch(match.startsAt, currentTime)} color="primary" variant="outlined" />
-                  </Stack>
-                  <Typography variant="h6">
-                    {match.homeTeam} - {match.awayTeam}
-                  </Typography>
-                  <Typography color="text.secondary">
-                    {new Date(match.startsAt).toLocaleString('nb-NO')} · {match.location || 'Sted ikke satt'}
-                  </Typography>
-                </Stack>
-              </CardContent>
-            </Card>
-          ))}
-        </Stack>
-      )}
     </Stack>
   )
 }
