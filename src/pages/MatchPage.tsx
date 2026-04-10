@@ -1,9 +1,7 @@
-import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import FlagRoundedIcon from '@mui/icons-material/FlagRounded'
 import PauseCircleRoundedIcon from '@mui/icons-material/PauseCircleRounded'
 import PlayCircleRoundedIcon from '@mui/icons-material/PlayCircleRounded'
-import SportsScoreRoundedIcon from '@mui/icons-material/SportsScoreRounded'
 import StopCircleRoundedIcon from '@mui/icons-material/StopCircleRounded'
 import {
   Alert,
@@ -11,6 +9,10 @@ import {
   Card,
   CardContent,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Grid,
   IconButton,
   List,
@@ -18,7 +20,6 @@ import {
   ListItemSecondaryAction,
   ListItemText,
   Stack,
-  TextField,
   Tooltip,
   Typography,
 } from '@mui/material'
@@ -29,7 +30,7 @@ import { RosterCard } from '../components/RosterCard'
 import { useAuth } from '../context/AuthContext'
 import { useDocument } from '../hooks/useRealtimeDatabase'
 import { updateMatch } from '../services/matchService'
-import { MatchEvent, MatchEventType, MatchRecord, MatchStatus, TeamRecord, UserRole } from '../types/domain'
+import { GoalScorer, MatchEvent, MatchEventType, MatchRecord, MatchStatus, TeamRecord, UserRole } from '../types/domain'
 import { formatMatchTime, getLiveElapsedSeconds } from '../utils/matchClock'
 
 function createEvent(
@@ -37,6 +38,7 @@ function createEvent(
   text: string,
   matchSecond: number,
   scoreAfter?: MatchRecord['score'],
+  scorerName?: string,
 ): MatchEvent {
   return {
     id: crypto.randomUUID(),
@@ -45,6 +47,7 @@ function createEvent(
     createdAt: new Date().toISOString(),
     matchSecond,
     scoreAfter,
+    scorerName,
   }
 }
 
@@ -54,8 +57,7 @@ export function MatchPage() {
   const { data: match, loading, error } = useDocument<MatchRecord>(matchId ? `matches/${matchId}` : null)
   const { data: team } = useDocument<TeamRecord>(match ? `teams/${match.teamId}` : null)
   const [clockSeconds, setClockSeconds] = useState(0)
-  const [homeScorer, setHomeScorer] = useState('')
-  const [awayScorer, setAwayScorer] = useState('')
+  const [scorerModalOpen, setScorerModalOpen] = useState(false)
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
@@ -93,6 +95,11 @@ export function MatchPage() {
   if (!hasAccess) {
     return <Alert severity="error">Du har ikke tilgang til denne kampen.</Alert>
   }
+
+  const ourSide: 'home' | 'away' = team?.name === match.awayTeam ? 'away' : 'home'
+  const opponentSide: 'home' | 'away' = ourSide === 'home' ? 'away' : 'home'
+  const ourTeamName = ourSide === 'home' ? match.homeTeam : match.awayTeam
+  const opponentName = ourSide === 'home' ? match.awayTeam : match.homeTeam
 
   const persistMatch = async (nextMatch: MatchRecord, successMessage: string) => {
     setErrorMessage(null)
@@ -150,6 +157,15 @@ export function MatchPage() {
   }
 
   const endMatch = async () => {
+    const ourGoalType = ourSide === 'home' ? MatchEventType.GOAL_HOME : MatchEventType.GOAL_AWAY
+    const scorerCounts: Record<string, number> = {}
+    for (const event of match.events) {
+      if (event.type === ourGoalType && event.scorerName) {
+        scorerCounts[event.scorerName] = (scorerCounts[event.scorerName] ?? 0) + 1
+      }
+    }
+    const goalScorers: GoalScorer[] = Object.entries(scorerCounts).map(([name, goals]) => ({ name, goals }))
+
     const nextMatch: MatchRecord = {
       ...match,
       clock: {
@@ -158,6 +174,7 @@ export function MatchPage() {
         startedAt: null,
       },
       events: [...match.events, createEvent(MatchEventType.MATCH_ENDED, 'Kampen avsluttet', 50 * 60, match.score)],
+      goalScorers,
     }
 
     await persistMatch(nextMatch, 'Kampen er avsluttet.')
@@ -169,21 +186,21 @@ export function MatchPage() {
       home: team === 'home' ? match.score.home + 1 : match.score.home,
       away: team === 'away' ? match.score.away + 1 : match.score.away,
     }
+    const teamName = team === 'home' ? match.homeTeam : match.awayTeam
+    const isOpponent = team === opponentSide
     const scorer = scorerName.trim() || 'Ukjent spiller'
-    const text = `${scorer} scoret for ${team === 'home' ? match.homeTeam : match.awayTeam}. Stillingen er nå ${score.home} - ${score.away}.`
+    const text = isOpponent
+      ? `${teamName} scoret. Stillingen er nå ${score.home} - ${score.away}.`
+      : `${scorer} scoret for ${teamName}. Stillingen er nå ${score.home} - ${score.away}.`
     const eventType = team === 'home' ? MatchEventType.GOAL_HOME : MatchEventType.GOAL_AWAY
+    const storedScorerName = isOpponent ? undefined : scorer
     const nextMatch: MatchRecord = {
       ...match,
       score,
-      events: [...match.events, createEvent(eventType, text, elapsedSeconds, score)],
+      events: [...match.events, createEvent(eventType, text, elapsedSeconds, score, storedScorerName)],
     }
 
     await persistMatch(nextMatch, 'Målet er registrert.')
-    if (team === 'home') {
-      setHomeScorer('')
-    } else {
-      setAwayScorer('')
-    }
   }
 
   const removeGoalEvent = async (eventId: string) => {
@@ -290,20 +307,28 @@ export function MatchPage() {
                   <Typography variant="h5">Registrer scoring</Typography>
                   <Grid container spacing={2}>
                     <Grid size={{ xs: 12, md: 6 }}>
-                      <Stack spacing={1.5}>
-                        <TextField label={`Målscorer (${match.homeTeam})`} value={homeScorer} onChange={(event) => setHomeScorer(event.target.value)} />
-                        <Button variant="outlined" startIcon={<AddRoundedIcon />} onClick={() => void registerGoal('home', homeScorer)} disabled={isFinished || isScheduled}>
-                          Registrer hjemmemål
-                        </Button>
-                      </Stack>
+                      <Button
+                        variant="contained"
+                        color="success"
+                        fullWidth
+                        size="large"
+                        onClick={() => setScorerModalOpen(true)}
+                        disabled={isFinished || isScheduled}
+                      >
+                        Mål {ourTeamName}
+                      </Button>
                     </Grid>
                     <Grid size={{ xs: 12, md: 6 }}>
-                      <Stack spacing={1.5}>
-                        <TextField label={`Målscorer (${match.awayTeam})`} value={awayScorer} onChange={(event) => setAwayScorer(event.target.value)} />
-                        <Button variant="outlined" startIcon={<SportsScoreRoundedIcon />} onClick={() => void registerGoal('away', awayScorer)} disabled={isFinished || isScheduled}>
-                          Registrer bortemål
-                        </Button>
-                      </Stack>
+                      <Button
+                        variant="contained"
+                        color="error"
+                        fullWidth
+                        size="large"
+                        onClick={() => void registerGoal(opponentSide, 'Ukjent')}
+                        disabled={isFinished || isScheduled}
+                      >
+                        Mål {opponentName}
+                      </Button>
                     </Grid>
                   </Grid>
                 </Stack>
@@ -371,6 +396,35 @@ export function MatchPage() {
           </Stack>
         </CardContent>
       </Card>
+
+      <Dialog open={scorerModalOpen} onClose={() => setScorerModalOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Hvem scoret for {ourTeamName}?</DialogTitle>
+        <DialogContent>
+          <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', pt: 1 }}>
+            {matchPlayerNames.map((player) => (
+              <Chip
+                key={player}
+                label={player}
+                onClick={() => {
+                  setScorerModalOpen(false)
+                  void registerGoal(ourSide, player)
+                }}
+              />
+            ))}
+            <Chip
+              label="Ukjent spiller"
+              variant="outlined"
+              onClick={() => {
+                setScorerModalOpen(false)
+                void registerGoal(ourSide, 'Ukjent spiller')
+              }}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, pt: 0 }}>
+          <Button onClick={() => setScorerModalOpen(false)}>Avbryt</Button>
+        </DialogActions>
+      </Dialog>
     </Stack>
   )
 }

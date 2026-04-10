@@ -2,6 +2,7 @@ import {
   MatchEventType,
   MatchStatus,
   UserRole,
+  type GoalScorer,
   type MatchClock,
   type MatchEvent,
   type MatchRecord,
@@ -60,8 +61,19 @@ function toMatchEvents(value: unknown): MatchEvent[] {
         createdAt: typeof candidate.createdAt === 'string' ? candidate.createdAt : new Date(0).toISOString(),
         matchSecond: typeof candidate.matchSecond === 'number' ? candidate.matchSecond : 0,
         scoreAfter: candidate.scoreAfter ? toMatchScore(candidate.scoreAfter) : undefined,
+        scorerName: typeof candidate.scorerName === 'string' ? candidate.scorerName : undefined,
       },
     ]
+  })
+}
+
+function toGoalScorers(value: unknown): GoalScorer[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item) => {
+    if (typeof item !== 'object' || item === null) return []
+    const candidate = item as Partial<GoalScorer>
+    if (typeof candidate.name !== 'string' || typeof candidate.goals !== 'number') return []
+    return [{ name: candidate.name, goals: candidate.goals }]
   })
 }
 
@@ -115,6 +127,7 @@ export function normalizeMatchRecord(value: unknown, id: string): MatchRecord {
     events: toMatchEvents(source.events),
     playerNames: toStringArray(source.playerNames),
     coachNames: toStringArray(source.coachNames),
+    goalScorers: toGoalScorers(source.goalScorers),
     createdAt: typeof source.createdAt === 'string' ? source.createdAt : new Date(0).toISOString(),
     updatedAt: typeof source.updatedAt === 'string' ? source.updatedAt : new Date(0).toISOString(),
     externalSourceId: typeof source.externalSourceId === 'string' ? source.externalSourceId : undefined,

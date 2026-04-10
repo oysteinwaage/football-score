@@ -74,6 +74,7 @@ export async function createMatch(input: CreateMatchInput): Promise<MatchRecord>
     events: [],
     playerNames: teamData?.playerNames ?? [],
     coachNames: teamData?.coachNames ?? [],
+    goalScorers: [],
     createdAt: now,
     updatedAt: now,
     externalSourceId: input.externalSourceId,
