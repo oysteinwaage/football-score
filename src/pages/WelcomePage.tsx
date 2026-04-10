@@ -84,6 +84,7 @@ export function WelcomePage() {
       return upcomingMatch ? { team, match: upcomingMatch } : null
     })
     .filter((entry): entry is { team: TeamRecord; match: MatchRecord } => entry !== null)
+    .sort((left, right) => left.match.startsAt.localeCompare(right.match.startsAt))
   const pendingApprovalUser = isAdmin
     ? users
         .filter((user) => !user.approved)
