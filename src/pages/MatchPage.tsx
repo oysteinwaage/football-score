@@ -1,7 +1,9 @@
+import ChatBubbleOutlineRoundedIcon from '@mui/icons-material/ChatBubbleOutlineRounded'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import FlagRoundedIcon from '@mui/icons-material/FlagRounded'
 import PauseCircleRoundedIcon from '@mui/icons-material/PauseCircleRounded'
 import PlayCircleRoundedIcon from '@mui/icons-material/PlayCircleRounded'
+import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded'
 import StopCircleRoundedIcon from '@mui/icons-material/StopCircleRounded'
 import {
   Alert,
@@ -19,6 +21,7 @@ import {
   IconButton,
   List,
   ListItem,
+  ListItemIcon,
   ListItemSecondaryAction,
   ListItemText,
   Stack,
@@ -61,6 +64,7 @@ export function MatchPage() {
   const { data: team } = useDocument<TeamRecord>(match ? `teams/${match.teamId}` : null)
   const [clockSeconds, setClockSeconds] = useState(0)
   const [scorerModalOpen, setScorerModalOpen] = useState(false)
+  const [infoNote, setInfoNote] = useState('')
   const [endMatchModalOpen, setEndMatchModalOpen] = useState(false)
   const [endMatchNote, setEndMatchNote] = useState('')
   const [endMatchKeepers, setEndMatchKeepers] = useState<string[]>([])
@@ -222,6 +226,16 @@ export function MatchPage() {
     await persistMatch(nextMatch, 'Målet er registrert.')
   }
 
+  const addInfoEvent = async () => {
+    const trimmed = infoNote.trim()
+    if (!trimmed) return
+    await persistMatch(
+      { ...match, events: [...match.events, createEvent(MatchEventType.INFO, trimmed, getLiveElapsedSeconds(match.clock))] },
+      'Infomeldingen er lagret.',
+    )
+    setInfoNote('')
+  }
+
   const removeGoalEvent = async (eventId: string) => {
     const nextEvents = match.events.filter((e) => e.id !== eventId)
     const nextScore = {
@@ -273,7 +287,7 @@ export function MatchPage() {
             <Typography color="text.secondary">
               {new Date(match.startsAt).toLocaleString('nb-NO')} · {match.location || 'Sted ikke satt'}
             </Typography>
-            <Typography variant="h1" sx={{ fontSize: { xs: '3.5rem', md: '5rem' } }}>
+            <Typography variant="h1" sx={{ fontSize: { xs: '3.5rem', md: '5rem' }, textAlign: 'center' }}>
               {match.score.home} - {match.score.away}
             </Typography>
             <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -286,6 +300,33 @@ export function MatchPage() {
           </Stack>
         </CardContent>
       </Card>
+
+      {canEditRoster && (
+        <Grid container spacing={3}>
+          <Grid size={{ xs: 12, md: 6 }}>
+            <RosterCard
+              title="Trenere"
+              names={matchCoachNames}
+              canEdit={canEditRoster}
+              suggestions={coachSuggestions}
+              onRemove={handleRemoveMatchCoach}
+              onAdd={handleAddMatchCoach}
+            />
+          </Grid>
+          <Grid size={{ xs: 12, md: 6 }}>
+            <RosterCard
+              title="Spillere"
+              names={matchPlayerNames}
+              canEdit={canEditRoster}
+              suggestions={playerSuggestions}
+              highlightedNames={match.keeperNames ?? []}
+              highlightLabel="Keeper"
+              onRemove={handleRemoveMatchPlayer}
+              onAdd={handleAddMatchPlayer}
+            />
+          </Grid>
+        </Grid>
+      )}
 
       {canManage && !isFinished && (
         <Grid container spacing={3}>
@@ -324,11 +365,11 @@ export function MatchPage() {
             </Card>
           </Grid>
 
-          <Grid size={{ xs: 12, lg: 7 }}>
+          {(isFirstHalf || isHalfTime || match.clock.status === MatchStatus.SECOND_HALF) && <Grid size={{ xs: 12, lg: 7 }}>
             <Card>
               <CardContent>
                 <Stack spacing={2}>
-                  <Typography variant="h5">Registrer scoring</Typography>
+                  <Typography variant="h5">Registrer mål</Typography>
                   <Grid container spacing={2}>
                     <Grid size={{ xs: 12, md: 6 }}>
                       <Button
@@ -337,7 +378,7 @@ export function MatchPage() {
                         fullWidth
                         size="large"
                         onClick={() => setScorerModalOpen(true)}
-                        disabled={isFinished || isScheduled}
+                        disabled={isFinished || isScheduled || isHalfTime}
                       >
                         Mål {ourTeamName}
                       </Button>
@@ -349,7 +390,7 @@ export function MatchPage() {
                         fullWidth
                         size="large"
                         onClick={() => void registerGoal(opponentSide, 'Ukjent')}
-                        disabled={isFinished || isScheduled}
+                        disabled={isFinished || isScheduled || isHalfTime}
                       >
                         Mål {opponentName}
                       </Button>
@@ -358,35 +399,28 @@ export function MatchPage() {
                 </Stack>
               </CardContent>
             </Card>
-          </Grid>
+          </Grid>}
         </Grid>
       )}
 
-      {canEditRoster && (
-        <Grid container spacing={3}>
-          <Grid size={{ xs: 12, md: 6 }}>
-            <RosterCard
-              title="Trenere"
-              names={matchCoachNames}
-              canEdit={canEditRoster}
-              suggestions={coachSuggestions}
-              onRemove={handleRemoveMatchCoach}
-              onAdd={handleAddMatchCoach}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, md: 6 }}>
-            <RosterCard
-              title="Spillere"
-              names={matchPlayerNames}
-              canEdit={canEditRoster}
-              suggestions={playerSuggestions}
-              highlightedNames={match.keeperNames ?? []}
-              highlightLabel="Keeper"
-              onRemove={handleRemoveMatchPlayer}
-              onAdd={handleAddMatchPlayer}
-            />
-          </Grid>
-        </Grid>
+      {canManage && (isFirstHalf || isHalfTime || match.clock.status === MatchStatus.SECOND_HALF) && (
+        <Card>
+          <CardContent>
+            <Stack spacing={2} direction="row" sx={{ alignItems: 'flex-start' }}>
+              <TextField
+                label="Hva skjer?"
+                value={infoNote}
+                onChange={(e) => setInfoNote(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && void addInfoEvent()}
+                fullWidth
+                size="small"
+              />
+              <Button variant="outlined" onClick={() => void addInfoEvent()} disabled={!infoNote.trim()}>
+                Publiser
+              </Button>
+            </Stack>
+          </CardContent>
+        </Card>
       )}
 
       <Card>
@@ -399,8 +433,18 @@ export function MatchPage() {
               <List disablePadding>
                 {sortedEvents.map((event) => {
                   const isGoal = event.type === MatchEventType.GOAL_HOME || event.type === MatchEventType.GOAL_AWAY
+                  const eventIcon = {
+                    [MatchEventType.GOAL_HOME]: <SportsSoccerRoundedIcon color="success" />,
+                    [MatchEventType.GOAL_AWAY]: <SportsSoccerRoundedIcon color="error" />,
+                    [MatchEventType.MATCH_STARTED]: <PlayCircleRoundedIcon color="primary" />,
+                    [MatchEventType.MATCH_PAUSED]: <PauseCircleRoundedIcon color="warning" />,
+                    [MatchEventType.SECOND_HALF_STARTED]: <PlayCircleRoundedIcon color="primary" />,
+                    [MatchEventType.MATCH_ENDED]: <StopCircleRoundedIcon color="error" />,
+                    [MatchEventType.INFO]: <ChatBubbleOutlineRoundedIcon color="action" />,
+                  }[event.type]
                   return (
                     <ListItem key={event.id} divider disableGutters sx={{ pr: canManage && isGoal && !isFinished ? 6 : 0 }}>
+                      <ListItemIcon sx={{ minWidth: 40 }}>{eventIcon}</ListItemIcon>
                       <ListItemText
                         primary={event.text}
                         secondary={`${formatMatchTime(event.matchSecond)} · ${new Date(event.createdAt).toLocaleTimeString('nb-NO')}`}
