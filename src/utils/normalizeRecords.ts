@@ -107,6 +107,8 @@ export function normalizeTeamRecord(value: unknown, id: string): TeamRecord {
     playerNames: toStringArray(source.playerNames),
     coachNames: toStringArray(source.coachNames),
     matchIds: toStringArray(source.matchIds),
+    songUrl: typeof source.songUrl === 'string' ? source.songUrl : undefined,
+    songTitle: typeof source.songTitle === 'string' ? source.songTitle : undefined,
     createdAt: typeof source.createdAt === 'string' ? source.createdAt : new Date(0).toISOString(),
     updatedAt: typeof source.updatedAt === 'string' ? source.updatedAt : new Date(0).toISOString(),
   }

@@ -3,8 +3,10 @@ import CheckRoundedIcon from '@mui/icons-material/CheckRounded'
 import CloudDownloadRoundedIcon from '@mui/icons-material/CloudDownloadRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
+import MusicNoteRoundedIcon from '@mui/icons-material/MusicNoteRounded'
 import {
   Alert,
+  Box,
   Button,
   Card,
   CardContent,
@@ -28,7 +30,7 @@ import { useAuth } from '../context/AuthContext'
 import { useCollection, useDocument } from '../hooks/useRealtimeDatabase'
 import { fetchFotballCalendar } from '../services/fotballCalendar'
 import { createMatch, deleteMatch, importFixtures, updateMatch } from '../services/matchService'
-import { updateTeamName, updateTeamRoster } from '../services/teamService'
+import { updateTeamName, updateTeamRoster, updateTeamSong } from '../services/teamService'
 import { MatchRecord, MatchStatus, TeamRecord, UserRole } from '../types/domain'
 import { getMatchOutcomeBackground, getMatchOutcomeForTeam } from '../utils/matchCardColors'
 
@@ -40,6 +42,10 @@ export function TeamPage() {
   const [editingName, setEditingName] = useState(false)
   const [nameValue, setNameValue] = useState('')
   const [nameSaving, setNameSaving] = useState(false)
+  const [editingSong, setEditingSong] = useState(false)
+  const [songValue, setSongValue] = useState('')
+  const [songTitleValue, setSongTitleValue] = useState('')
+  const [songSaving, setSongSaving] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [calendarUrl, setCalendarUrl] = useState('')
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
@@ -84,6 +90,27 @@ export function TeamPage() {
       setErrorMessage(error instanceof Error ? error.message : 'Kunne ikke lagre lagnavnet.')
     } finally {
       setNameSaving(false)
+    }
+  }
+
+  const normalizeSongUrl = (url: string): string => {
+    const sunoMatch = url.match(/suno\.com\/song\/([a-f0-9-]+)/)
+    if (sunoMatch) {
+      return `https://cdn1.suno.ai/${sunoMatch[1]}.mp3`
+    }
+    return url
+  }
+
+  const handleSaveSong = async () => {
+    const trimmed = normalizeSongUrl(songValue.trim())
+    setSongSaving(true)
+    try {
+      await updateTeamSong(teamId, trimmed || null, songTitleValue.trim() || undefined)
+      setEditingSong(false)
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Kunne ikke lagre sanglenkен.')
+    } finally {
+      setSongSaving(false)
     }
   }
 
@@ -241,6 +268,92 @@ export function TeamPage() {
 
       {statusMessage && <Alert severity="success">{statusMessage}</Alert>}
       {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
+
+      {team.songUrl && (
+        <Card>
+          <CardContent>
+            <Stack spacing={1.5}>
+              <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                <MusicNoteRoundedIcon color="primary" fontSize="small" />
+                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>{team.songTitle || 'Lagssang'}</Typography>
+                {canEditRoster && (
+                  <IconButton size="small" sx={{ ml: 'auto' }} onClick={() => { setSongValue(team.songUrl ?? ''); setSongTitleValue(team.songTitle ?? ''); setEditingSong(true) }}>
+                    <EditRoundedIcon fontSize="small" />
+                  </IconButton>
+                )}
+              </Stack>
+
+              <Box component="audio" controls src={team.songUrl} sx={{ width: '100%' }} />
+            </Stack>
+          </CardContent>
+        </Card>
+      )}
+
+      {canEditRoster && !team.songUrl && !editingSong && (
+        <Button
+          variant="text"
+          startIcon={<MusicNoteRoundedIcon />}
+          onClick={() => { setSongValue(''); setSongTitleValue(''); setEditingSong(true) }}
+          sx={{ alignSelf: 'flex-start' }}
+        >
+          Legg til lagssang
+        </Button>
+      )}
+
+      {editingSong && (
+        <Card>
+          <CardContent>
+            <Stack spacing={2}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Lagssang – lenke til lydfil</Typography>
+              <TextField
+                label="Sangtittel"
+                value={songTitleValue}
+                onChange={(e) => setSongTitleValue(e.target.value)}
+                disabled={songSaving}
+                fullWidth
+                autoFocus
+                placeholder="f.eks. Vår kampsang"
+              />
+              <TextField
+                label="URL til lydfil"
+                value={songValue}
+                onChange={(e) => setSongValue(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && void handleSaveSong()}
+                disabled={songSaving}
+                fullWidth
+                placeholder="https://suno.com/song/... eller direkte .mp3-lenke"
+              />
+              <Stack direction="row" spacing={1}>
+                <Button variant="contained" onClick={() => void handleSaveSong()} disabled={songSaving}>
+                  Lagre
+                </Button>
+                <Button onClick={() => setEditingSong(false)} disabled={songSaving}>
+                  Avbryt
+                </Button>
+                {team.songUrl && (
+                  <Button
+                    color="error"
+                    disabled={songSaving}
+                    onClick={async () => {
+                      setSongSaving(true)
+                      try {
+                        await updateTeamSong(teamId, null)
+                        setEditingSong(false)
+                      } catch (error) {
+                        setErrorMessage(error instanceof Error ? error.message : 'Kunne ikke fjerne sangen.')
+                      } finally {
+                        setSongSaving(false)
+                      }
+                    }}
+                  >
+                    Fjern sang
+                  </Button>
+                )}
+              </Stack>
+            </Stack>
+          </CardContent>
+        </Card>
+      )}
 
       <Grid container spacing={3}>
         <Grid size={{ xs: 12, lg: 4 }}>
