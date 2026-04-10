@@ -426,9 +426,11 @@ export function TeamPage() {
                         <Typography color="text.secondary">
                           {new Date(match.startsAt).toLocaleString('nb-NO')} · {match.location || 'Sted ikke satt'}
                         </Typography>
-                        <Typography sx={{ mt: 1, fontWeight: 700 }}>
-                          {match.score.home} - {match.score.away}
-                        </Typography>
+                        {match.clock.status !== MatchStatus.SCHEDULED && (
+                          <Typography sx={{ mt: 1, fontWeight: 700 }}>
+                            {match.score.home} - {match.score.away}
+                          </Typography>
+                        )}
                       </Stack>
                       {isAdmin && (
                         <IconButton

@@ -130,6 +130,7 @@ export function normalizeMatchRecord(value: unknown, id: string): MatchRecord {
     playerNames: toStringArray(source.playerNames),
     coachNames: toStringArray(source.coachNames),
     goalScorers: toGoalScorers(source.goalScorers),
+    keeperNames: toStringArray(source.keeperNames),
     createdAt: typeof source.createdAt === 'string' ? source.createdAt : new Date(0).toISOString(),
     updatedAt: typeof source.updatedAt === 'string' ? source.updatedAt : new Date(0).toISOString(),
     externalSourceId: typeof source.externalSourceId === 'string' ? source.externalSourceId : undefined,

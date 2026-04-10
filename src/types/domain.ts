@@ -88,6 +88,7 @@ export interface MatchRecord {
   playerNames: string[]
   coachNames: string[]
   goalScorers: GoalScorer[]
+  keeperNames: string[]
   createdAt: string
   updatedAt: string
   externalSourceId?: string

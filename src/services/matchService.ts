@@ -18,7 +18,7 @@ function omitUndefined<T extends object>(value: T): T {
       .filter((entryValue) => entryValue !== undefined)
       .map((entryValue) =>
         typeof entryValue === 'object' && entryValue !== null
-          ? omitUndefined(entryValue)
+          ? omitUndefined(entryValue as object)
           : entryValue,
       ) as T
   }
@@ -29,7 +29,7 @@ function omitUndefined<T extends object>(value: T): T {
       .map(([key, entryValue]) => [
         key,
         typeof entryValue === 'object' && entryValue !== null
-          ? omitUndefined(entryValue)
+          ? omitUndefined(entryValue as object)
           : entryValue,
       ]),
   ) as T
@@ -75,6 +75,7 @@ export async function createMatch(input: CreateMatchInput): Promise<MatchRecord>
     playerNames: teamData?.playerNames ?? [],
     coachNames: teamData?.coachNames ?? [],
     goalScorers: [],
+    keeperNames: [],
     createdAt: now,
     updatedAt: now,
     externalSourceId: input.externalSourceId,

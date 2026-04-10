@@ -22,11 +22,13 @@ interface RosterCardProps {
   names: string[]
   canEdit: boolean
   suggestions?: string[]
+  highlightedNames?: string[]
+  highlightLabel?: string
   onRemove: (name: string) => Promise<void>
   onAdd: (name: string) => Promise<void>
 }
 
-export function RosterCard({ title, names, canEdit, suggestions = [], onRemove, onAdd }: RosterCardProps) {
+export function RosterCard({ title, names, canEdit, suggestions = [], highlightedNames = [], highlightLabel, onRemove, onAdd }: RosterCardProps) {
   const [editing, setEditing] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
   const [newName, setNewName] = useState('')
@@ -67,15 +69,19 @@ export function RosterCard({ title, names, canEdit, suggestions = [], onRemove, 
             )}
           </Stack>
           <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
-            {names.map((name) => (
-              <Chip
-                key={name}
-                label={name}
-                onDelete={editing ? () => void handleRemove(name) : undefined}
-                deleteIcon={<CloseRoundedIcon />}
-                disabled={saving}
-              />
-            ))}
+            {names.map((name) => {
+              const isHighlighted = highlightedNames.includes(name)
+              return (
+                <Chip
+                  key={name}
+                  label={name}
+                  color={isHighlighted ? 'secondary' : 'default'}
+                  onDelete={editing ? () => void handleRemove(name) : undefined}
+                  deleteIcon={<CloseRoundedIcon />}
+                  disabled={saving}
+                />
+              )
+            })}
             {editing && (
               <Chip
                 icon={<AddRoundedIcon />}
@@ -86,6 +92,12 @@ export function RosterCard({ title, names, canEdit, suggestions = [], onRemove, 
               />
             )}
           </Stack>
+          {highlightedNames.length > 0 && highlightLabel && (
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+              <Chip color="secondary" size="small" sx={{ width: 16, height: 16, borderRadius: '4px' }} label="" />
+              <Typography variant="caption" color="text.secondary">{highlightLabel}</Typography>
+            </Stack>
+          )}
         </Stack>
       </CardContent>
 

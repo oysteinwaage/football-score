@@ -8,11 +8,13 @@ import {
   Button,
   Card,
   CardContent,
+  Checkbox,
   Chip,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
   Grid,
   IconButton,
   List,
@@ -20,6 +22,7 @@ import {
   ListItemSecondaryAction,
   ListItemText,
   Stack,
+  TextField,
   Tooltip,
   Typography,
 } from '@mui/material'
@@ -58,6 +61,9 @@ export function MatchPage() {
   const { data: team } = useDocument<TeamRecord>(match ? `teams/${match.teamId}` : null)
   const [clockSeconds, setClockSeconds] = useState(0)
   const [scorerModalOpen, setScorerModalOpen] = useState(false)
+  const [endMatchModalOpen, setEndMatchModalOpen] = useState(false)
+  const [endMatchNote, setEndMatchNote] = useState('')
+  const [endMatchKeepers, setEndMatchKeepers] = useState<string[]>([])
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
@@ -166,6 +172,15 @@ export function MatchPage() {
     }
     const goalScorers: GoalScorer[] = Object.entries(scorerCounts).map(([name, goals]) => ({ name, goals }))
 
+    const matchEndedEvent = createEvent(MatchEventType.MATCH_ENDED, 'Kampen avsluttet', 50 * 60, match.score)
+    const endEvents: MatchEvent[] = [matchEndedEvent]
+    if (endMatchNote.trim()) {
+      endEvents.push({
+        ...createEvent(MatchEventType.INFO, endMatchNote.trim(), 50 * 60),
+        createdAt: new Date(new Date(matchEndedEvent.createdAt).getTime() + 1).toISOString(),
+      })
+    }
+
     const nextMatch: MatchRecord = {
       ...match,
       clock: {
@@ -173,11 +188,15 @@ export function MatchPage() {
         elapsedSeconds: 50 * 60,
         startedAt: null,
       },
-      events: [...match.events, createEvent(MatchEventType.MATCH_ENDED, 'Kampen avsluttet', 50 * 60, match.score)],
+      events: [...match.events, ...endEvents],
       goalScorers,
+      keeperNames: endMatchKeepers,
     }
 
+    setEndMatchModalOpen(false)
     await persistMatch(nextMatch, 'Kampen er avsluttet.')
+    setEndMatchNote('')
+    setEndMatchKeepers([])
   }
 
   const registerGoal = async (team: 'home' | 'away', scorerName: string) => {
@@ -291,7 +310,12 @@ export function MatchPage() {
                     </Button>
                   )}
                   {!isFinished && !isScheduled && (
-                    <Button variant="outlined" color="error" startIcon={<StopCircleRoundedIcon />} onClick={() => void endMatch()}>
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      startIcon={<StopCircleRoundedIcon />}
+                      onClick={() => { setEndMatchKeepers([]); setEndMatchNote(''); setEndMatchModalOpen(true) }}
+                    >
                       Avslutt kamp
                     </Button>
                   )}
@@ -356,6 +380,8 @@ export function MatchPage() {
               names={matchPlayerNames}
               canEdit={canEditRoster}
               suggestions={playerSuggestions}
+              highlightedNames={match.keeperNames ?? []}
+              highlightLabel="Keeper"
               onRemove={handleRemoveMatchPlayer}
               onAdd={handleAddMatchPlayer}
             />
@@ -374,12 +400,12 @@ export function MatchPage() {
                 {sortedEvents.map((event) => {
                   const isGoal = event.type === MatchEventType.GOAL_HOME || event.type === MatchEventType.GOAL_AWAY
                   return (
-                    <ListItem key={event.id} divider disableGutters sx={{ pr: canManage && isGoal ? 6 : 0 }}>
+                    <ListItem key={event.id} divider disableGutters sx={{ pr: canManage && isGoal && !isFinished ? 6 : 0 }}>
                       <ListItemText
                         primary={event.text}
                         secondary={`${formatMatchTime(event.matchSecond)} · ${new Date(event.createdAt).toLocaleTimeString('nb-NO')}`}
                       />
-                      {canManage && isGoal && (
+                      {canManage && isGoal && !isFinished && (
                         <ListItemSecondaryAction>
                           <Tooltip title="Fjern målhendelse">
                             <IconButton edge="end" size="small" color="error" onClick={() => void removeGoalEvent(event.id)}>
@@ -396,6 +422,50 @@ export function MatchPage() {
           </Stack>
         </CardContent>
       </Card>
+
+      <Dialog open={endMatchModalOpen} onClose={() => setEndMatchModalOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Avslutt kamp</DialogTitle>
+        <DialogContent>
+          <Stack spacing={3} sx={{ pt: 1 }}>
+            <TextField
+              label="Avsluttende kommentar (valgfritt)"
+              value={endMatchNote}
+              onChange={(e) => setEndMatchNote(e.target.value)}
+              multiline
+              rows={2}
+              fullWidth
+              placeholder="f.eks. God innsats av alle!"
+            />
+            {matchPlayerNames.length > 0 && (
+              <Stack spacing={1}>
+                <Typography variant="subtitle2">Hvem har vært keeper?</Typography>
+                {matchPlayerNames.map((player) => (
+                  <FormControlLabel
+                    key={player}
+                    control={
+                      <Checkbox
+                        checked={endMatchKeepers.includes(player)}
+                        onChange={() =>
+                          setEndMatchKeepers((prev) =>
+                            prev.includes(player) ? prev.filter((n) => n !== player) : [...prev, player],
+                          )
+                        }
+                      />
+                    }
+                    label={player}
+                  />
+                ))}
+              </Stack>
+            )}
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, pt: 0 }}>
+          <Button onClick={() => setEndMatchModalOpen(false)}>Avbryt</Button>
+          <Button variant="contained" color="error" onClick={() => void endMatch()}>
+            Avslutt og lagre kamp
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={scorerModalOpen} onClose={() => setScorerModalOpen(false)} fullWidth maxWidth="xs">
         <DialogTitle>Hvem scoret for {ourTeamName}?</DialogTitle>
