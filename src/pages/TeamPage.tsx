@@ -22,7 +22,7 @@ import {
   Typography,
 } from '@mui/material'
 import { useMemo, useState } from 'react'
-import { Link as RouterLink, useParams } from 'react-router-dom'
+import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom'
 
 import { ManualMatchDialog, ManualMatchValues } from '../components/ManualMatchDialog'
 import { RosterCard } from '../components/RosterCard'
@@ -30,12 +30,13 @@ import { useAuth } from '../context/AuthContext'
 import { useCollection, useDocument } from '../hooks/useRealtimeDatabase'
 import { fetchFotballCalendar } from '../services/fotballCalendar'
 import { createMatch, deleteMatch, importFixtures, updateMatch } from '../services/matchService'
-import { updateTeamName, updateTeamRoster, updateTeamSong } from '../services/teamService'
+import { deleteTeam, updateTeamName, updateTeamRoster, updateTeamSong } from '../services/teamService'
 import { MatchRecord, MatchStatus, TeamRecord, UserRole } from '../types/domain'
 import { getMatchOutcomeBackground, getMatchOutcomeForTeam } from '../utils/matchCardColors'
 
 export function TeamPage() {
   const { teamId = '' } = useParams()
+  const navigate = useNavigate()
   const { profile } = useAuth()
   const { data: team, loading, error } = useDocument<TeamRecord>(teamId ? `teams/${teamId}` : null)
   const { data: matches, loading: matchesLoading } = useCollection<MatchRecord>('matches')
@@ -53,6 +54,8 @@ export function TeamPage() {
   const [importing, setImporting] = useState(false)
   const [matchPendingDeletion, setMatchPendingDeletion] = useState<MatchRecord | null>(null)
   const [deletingMatch, setDeletingMatch] = useState(false)
+  const [teamDeleteDialogOpen, setTeamDeleteDialogOpen] = useState(false)
+  const [deletingTeam, setDeletingTeam] = useState(false)
 
   const canManage = Boolean(profile?.roles.some((role) => role === UserRole.ADMIN || role === UserRole.KAMPLEDER))
   const canEditRoster = Boolean(profile?.roles.some((role) => role === UserRole.ADMIN || role === UserRole.TRENER))
@@ -176,6 +179,19 @@ export function TeamPage() {
     }
   }
 
+  const handleDeleteTeam = async () => {
+    setDeletingTeam(true)
+    setErrorMessage(null)
+    try {
+      await deleteTeam(teamId)
+      navigate('/')
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Kunne ikke slette laget.')
+      setDeletingTeam(false)
+      setTeamDeleteDialogOpen(false)
+    }
+  }
+
   const scheduledMatches = teamMatches.filter((m) => m.clock.status === MatchStatus.SCHEDULED)
 
   const handleRemoveCoach = async (name: string) => {
@@ -259,11 +275,18 @@ export function TeamPage() {
             {team.playerNames.length} spillere · {team.coachNames.length} trenere
           </Typography>
         </div>
-        {canManage && (
-          <Button variant="contained" startIcon={<AddCircleRoundedIcon />} onClick={() => setDialogOpen(true)}>
-            Legg til kamp
-          </Button>
-        )}
+        <Stack direction="row" spacing={1}>
+          {canManage && (
+            <Button variant="contained" startIcon={<AddCircleRoundedIcon />} onClick={() => setDialogOpen(true)}>
+              Legg til kamp
+            </Button>
+          )}
+          {isAdmin && (
+            <Button variant="outlined" color="error" startIcon={<DeleteOutlineRoundedIcon />} onClick={() => setTeamDeleteDialogOpen(true)}>
+              Slett lag
+            </Button>
+          )}
+        </Stack>
       </Stack>
 
       {statusMessage && <Alert severity="success">{statusMessage}</Alert>}
@@ -450,6 +473,25 @@ export function TeamPage() {
         </CardContent>
       </Card>
 
+      <Dialog open={teamDeleteDialogOpen} onClose={() => !deletingTeam && setTeamDeleteDialogOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Slett lag</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Er du helt sikker på at du vil slette <strong>{team.name}</strong>? Dette vil også slette alle tilhørende kamper og fjerne laget fra alle brukere.
+          </Typography>
+          <Typography color="text.secondary" sx={{ mt: 1 }}>
+            Denne handlingen kan ikke angres.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, pt: 0 }}>
+          <Button onClick={() => setTeamDeleteDialogOpen(false)} disabled={deletingTeam}>
+            Avbryt
+          </Button>
+          <Button color="error" variant="contained" onClick={() => void handleDeleteTeam()} disabled={deletingTeam}>
+            {deletingTeam ? 'Sletter...' : 'Bekreft sletting'}
+          </Button>
+        </DialogActions>
+      </Dialog>
       <ManualMatchDialog open={dialogOpen} teamName={team.name} onClose={() => setDialogOpen(false)} onSubmit={handleCreateMatch} />
       <Dialog
         open={Boolean(matchPendingDeletion)}

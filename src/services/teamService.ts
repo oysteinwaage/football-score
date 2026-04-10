@@ -1,7 +1,7 @@
-import { get, push, ref, set, update } from 'firebase/database'
+import { get, push, ref, remove, set, update } from 'firebase/database'
 
 import { database, firebaseConfigError } from '../firebase/config'
-import { TeamRecord, TeamType } from '../types/domain'
+import { TeamRecord, TeamType, UserProfile } from '../types/domain'
 
 function requireDatabase() {
   if (!database) {
@@ -82,6 +82,36 @@ export async function updateTeamRoster(teamId: string, playerNames: string[], co
     coachNames,
     updatedAt: new Date().toISOString(),
   })
+}
+
+export async function deleteTeam(teamId: string): Promise<void> {
+  const db = requireDatabase()
+
+  // Delete all matches belonging to this team
+  const teamSnapshot = await get(ref(db, `teams/${teamId}`))
+  const team = teamSnapshot.val() as TeamRecord | null
+  if (team?.matchIds?.length) {
+    await Promise.all(team.matchIds.map((matchId) => remove(ref(db, `matches/${matchId}`))))
+  }
+
+  // Remove teamId from all users
+  const usersSnapshot = await get(ref(db, 'users'))
+  if (usersSnapshot.exists()) {
+    const users = usersSnapshot.val() as Record<string, UserProfile>
+    await Promise.all(
+      Object.entries(users)
+        .filter(([, user]) => user.teamIds?.includes(teamId))
+        .map(([uid, user]) =>
+          update(ref(db, `users/${uid}`), {
+            teamIds: user.teamIds.filter((id) => id !== teamId),
+            updatedAt: new Date().toISOString(),
+          }),
+        ),
+    )
+  }
+
+  // Delete the team itself
+  await remove(ref(db, `teams/${teamId}`))
 }
 
 export async function removeMatchReferenceFromTeam(teamId: string, matchId: string): Promise<void> {
