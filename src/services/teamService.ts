@@ -59,6 +59,13 @@ export async function addMatchReferenceToTeam(teamId: string, matchId: string): 
   })
 }
 
+export async function updateTeamName(teamId: string, name: string): Promise<void> {
+  await update(ref(requireDatabase(), `teams/${teamId}`), {
+    name,
+    updatedAt: new Date().toISOString(),
+  })
+}
+
 export async function updateTeamRoster(teamId: string, playerNames: string[], coachNames: string[]): Promise<void> {
   await update(ref(requireDatabase(), `teams/${teamId}`), {
     playerNames,

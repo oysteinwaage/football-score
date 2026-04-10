@@ -1,6 +1,8 @@
 import AddCircleRoundedIcon from '@mui/icons-material/AddCircleRounded'
+import CheckRoundedIcon from '@mui/icons-material/CheckRounded'
 import CloudDownloadRoundedIcon from '@mui/icons-material/CloudDownloadRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
+import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import {
   Alert,
   Button,
@@ -12,6 +14,7 @@ import {
   DialogTitle,
   Grid,
   IconButton,
+  InputAdornment,
   Stack,
   TextField,
   Typography,
@@ -25,7 +28,7 @@ import { useAuth } from '../context/AuthContext'
 import { useCollection, useDocument } from '../hooks/useRealtimeDatabase'
 import { fetchFotballCalendar } from '../services/fotballCalendar'
 import { createMatch, deleteMatch, importFixtures, updateMatch } from '../services/matchService'
-import { updateTeamRoster } from '../services/teamService'
+import { updateTeamName, updateTeamRoster } from '../services/teamService'
 import { MatchRecord, MatchStatus, TeamRecord, UserRole } from '../types/domain'
 import { getMatchOutcomeBackground, getMatchOutcomeForTeam } from '../utils/matchCardColors'
 
@@ -34,6 +37,9 @@ export function TeamPage() {
   const { profile } = useAuth()
   const { data: team, loading, error } = useDocument<TeamRecord>(teamId ? `teams/${teamId}` : null)
   const { data: matches, loading: matchesLoading } = useCollection<MatchRecord>('matches')
+  const [editingName, setEditingName] = useState(false)
+  const [nameValue, setNameValue] = useState('')
+  const [nameSaving, setNameSaving] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [calendarUrl, setCalendarUrl] = useState('')
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
@@ -62,6 +68,23 @@ export function TeamPage() {
 
   if (!hasAccess) {
     return <Alert severity="error">Du har ikke tilgang til dette laget.</Alert>
+  }
+
+  const handleSaveName = async () => {
+    const trimmed = nameValue.trim()
+    if (!trimmed || trimmed === team.name) {
+      setEditingName(false)
+      return
+    }
+    setNameSaving(true)
+    try {
+      await updateTeamName(teamId, trimmed)
+      setEditingName(false)
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Kunne ikke lagre lagnavnet.')
+    } finally {
+      setNameSaving(false)
+    }
   }
 
   const handleCreateMatch = async (values: ManualMatchValues) => {
@@ -172,7 +195,39 @@ export function TeamPage() {
     <Stack spacing={3}>
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ justifyContent: 'space-between' }}>
         <div>
-          <Typography variant="h4">{team.name}</Typography>
+          {editingName ? (
+            <TextField
+              value={nameValue}
+              onChange={(e) => setNameValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') void handleSaveName()
+                if (e.key === 'Escape') setEditingName(false)
+              }}
+              disabled={nameSaving}
+              autoFocus
+              size="small"
+              slotProps={{
+                input: {
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton size="small" onClick={() => void handleSaveName()} disabled={nameSaving}>
+                        <CheckRoundedIcon fontSize="small" />
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                },
+              }}
+            />
+          ) : (
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+              <Typography variant="h4">{team.name}</Typography>
+              {isAdmin && (
+                <IconButton size="small" onClick={() => { setNameValue(team.name); setEditingName(true) }}>
+                  <EditRoundedIcon fontSize="small" />
+                </IconButton>
+              )}
+            </Stack>
+          )}
           <Typography color="text.secondary">
             {team.playerNames.length} spillere · {team.coachNames.length} trenere
           </Typography>
