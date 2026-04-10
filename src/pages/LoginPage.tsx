@@ -29,7 +29,7 @@ export function LoginPage() {
           <Stack spacing={3}>
             <div>
               <Typography variant="h3" gutterBottom>
-                Football Score
+                Live Score
               </Typography>
               <Typography color="text.secondary">
                 Logg inn med Google for å følge laget, registrere kamphendelser og administrere tilgang.

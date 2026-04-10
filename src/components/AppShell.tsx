@@ -76,7 +76,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <SportsSoccerRoundedIcon />
           </Avatar>
           <Box>
-            <Typography variant="h6">Football Score</Typography>
+            <Typography variant="h6">Live Score</Typography>
             <Typography variant="body2" color="text.secondary">
               Følg med på gutta!
             </Typography>
@@ -177,7 +177,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </IconButton>
           )}
           <Box>
-            <Typography variant="h6">Football Score - VASK G2016</Typography>
+            <Typography variant="h6">Live Score - VASK G2016</Typography>
             <Typography variant="body2" color="text.secondary">
               {profile?.approved
                 ? `${profile.parentName} (${profile.roles.map((r) => r.charAt(0).toUpperCase() + r.slice(1).toLowerCase()).join(', ')})`
