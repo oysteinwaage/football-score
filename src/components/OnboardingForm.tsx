@@ -1,14 +1,35 @@
-import { Alert, Box, Button, Card, CardContent, Stack, TextField, Typography } from '@mui/material'
+import {
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Checkbox,
+  FormControlLabel,
+  Stack,
+  TextField,
+  Typography,
+} from '@mui/material'
 import { FormEvent, useState } from 'react'
 
 import { useAuth } from '../context/AuthContext'
+import { useCollection } from '../hooks/useRealtimeDatabase'
+import { TeamRecord } from '../types/domain'
 
 export function OnboardingForm() {
   const { completeOnboarding, user } = useAuth()
+  const { data: teams } = useCollection<TeamRecord>('teams')
   const [parentName, setParentName] = useState(user?.displayName ?? '')
   const [childName, setChildName] = useState('')
+  const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const toggleTeam = (teamId: string) => {
+    setSelectedTeamIds((prev) =>
+      prev.includes(teamId) ? prev.filter((id) => id !== teamId) : [...prev, teamId],
+    )
+  }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -16,7 +37,7 @@ export function OnboardingForm() {
     setError(null)
 
     try {
-      await completeOnboarding(parentName.trim(), childName.trim())
+      await completeOnboarding(parentName.trim(), childName.trim(), selectedTeamIds)
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : 'Kunne ikke lagre registreringen.')
     } finally {
@@ -35,7 +56,8 @@ export function OnboardingForm() {
             Før du kan få tilgang må vi vite hvem du er og hvilket barn du følger opp.
           </Typography>
           {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-          <Stack component="form" spacing={2.5} onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit}>
+          <Stack spacing={2.5}>
             <TextField
               label="Ditt navn"
               value={parentName}
@@ -48,10 +70,33 @@ export function OnboardingForm() {
               onChange={(event) => setChildName(event.target.value)}
               required
             />
-            <Button type="submit" size="large" variant="contained" disabled={submitting || !parentName.trim() || !childName.trim()}>
+            {teams.length > 0 && (
+              <Stack spacing={1}>
+                <Typography variant="subtitle2">Hvilke lag ønsker du tilgang til?</Typography>
+                {teams.map((team) => (
+                  <FormControlLabel
+                    key={team.id}
+                    control={
+                      <Checkbox
+                        checked={selectedTeamIds.includes(team.id)}
+                        onChange={() => toggleTeam(team.id)}
+                      />
+                    }
+                    label={team.name}
+                  />
+                ))}
+              </Stack>
+            )}
+            <Button
+              type="submit"
+              size="large"
+              variant="contained"
+              disabled={submitting || !parentName.trim() || !childName.trim()}
+            >
               {submitting ? 'Lagrer...' : 'Send inn registrering'}
             </Button>
           </Stack>
+          </form>
         </CardContent>
       </Card>
     </Box>

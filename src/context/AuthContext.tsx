@@ -25,7 +25,7 @@ interface AuthContextValue {
   configError: string | null
   signInWithGoogle: () => Promise<void>
   signOutUser: () => Promise<void>
-  completeOnboarding: (parentName: string, childName: string) => Promise<void>
+  completeOnboarding: (parentName: string, childName: string, teamIds: string[]) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -109,12 +109,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         await signOut(auth)
       },
-      completeOnboarding: async (parentName: string, childName: string) => {
+      completeOnboarding: async (parentName: string, childName: string, teamIds: string[]) => {
         if (!user) {
           throw new Error('Du må være logget inn for å fullføre registreringen.')
         }
 
-        const nextProfile = await createUserProfile(user, parentName, childName)
+        const nextProfile = await createUserProfile(user, parentName, childName, teamIds)
         setProfile(nextProfile)
         setProfileMissing(false)
       },

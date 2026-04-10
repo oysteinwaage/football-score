@@ -4,7 +4,9 @@ import {
   Button,
   Card,
   CardContent,
+  Checkbox,
   Chip,
+  FormControlLabel,
   Stack,
   Typography,
 } from '@mui/material'
@@ -14,7 +16,7 @@ import { Link as RouterLink } from 'react-router-dom'
 
 import { useAuth } from '../context/AuthContext'
 import { useCollection } from '../hooks/useRealtimeDatabase'
-import { updateUserAccess } from '../services/userService'
+import { deleteUserProfile, updateUserAccess } from '../services/userService'
 import { MatchRecord, MatchStatus, TeamRecord, UserProfile, UserRole } from '../types/domain'
 import { getMatchOutcomeBackground, getMatchOutcomeForTeam } from '../utils/matchCardColors'
 import { formatMatchTime, getLiveElapsedSeconds } from '../utils/matchClock'
@@ -42,6 +44,7 @@ export function WelcomePage() {
   const [currentTime, setCurrentTime] = useState(() => Date.now())
   const [approvalSubmitting, setApprovalSubmitting] = useState(false)
   const [approvalError, setApprovalError] = useState<string | null>(null)
+  const [approvalTeamIds, setApprovalTeamIds] = useState<string[]>([])
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -89,23 +92,23 @@ export function WelcomePage() {
         .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0] ?? null
     : null
 
+  useEffect(() => {
+    setApprovalTeamIds(pendingApprovalUser?.teamIds ?? [])
+  }, [pendingApprovalUser?.id])
+
   if (!profile) {
     return null
   }
 
   const handleApproveUser = async () => {
-    if (!pendingApprovalUser) {
-      return
-    }
-
+    if (!pendingApprovalUser) return
     setApprovalSubmitting(true)
     setApprovalError(null)
-
     try {
       await updateUserAccess(pendingApprovalUser.id, {
         approved: true,
         roles: pendingApprovalUser.roles,
-        teamIds: pendingApprovalUser.teamIds,
+        teamIds: approvalTeamIds,
       })
     } catch (error) {
       setApprovalError(error instanceof Error ? error.message : 'Kunne ikke godkjenne brukeren.')
@@ -114,29 +117,73 @@ export function WelcomePage() {
     }
   }
 
+  const handleDeleteUser = async () => {
+    if (!pendingApprovalUser) return
+    setApprovalSubmitting(true)
+    setApprovalError(null)
+    try {
+      await deleteUserProfile(pendingApprovalUser.id)
+    } catch (error) {
+      setApprovalError(error instanceof Error ? error.message : 'Kunne ikke slette brukeren.')
+    } finally {
+      setApprovalSubmitting(false)
+    }
+  }
+
+  const toggleApprovalTeam = (teamId: string) => {
+    setApprovalTeamIds((prev) =>
+      prev.includes(teamId) ? prev.filter((id) => id !== teamId) : [...prev, teamId],
+    )
+  }
+
   return (
     <Stack spacing={3}>
       {pendingApprovalUser && (
-        <Alert
-          severity="info"
-          action={
-            <Button
-              color="inherit"
-              size="small"
-              variant="outlined"
-              disabled={approvalSubmitting}
-              onClick={() => void handleApproveUser()}
-            >
-              {approvalSubmitting ? 'Godkjenner...' : 'Godkjenn bruker'}
-            </Button>
-          }
-        >
-          <Stack spacing={0.5}>
+        <Alert severity="info">
+          <Stack spacing={1.5}>
             <Typography variant="subtitle2">Ny bruker venter på godkjenning</Typography>
             <Typography variant="body2">
               {pendingApprovalUser.parentName} har registrert seg for {pendingApprovalUser.childName}
               {pendingApprovalUser.email ? ` (${pendingApprovalUser.email})` : ''}.
             </Typography>
+            {pendingApprovalUser.teamIds.length > 0 && (
+              <Stack spacing={0.5}>
+                <Typography variant="body2">Ønsket lagtilgang:</Typography>
+                {teams.filter((team) => pendingApprovalUser.teamIds.includes(team.id)).map((team) => (
+                  <FormControlLabel
+                    key={team.id}
+                    control={
+                      <Checkbox
+                        size="small"
+                        checked={approvalTeamIds.includes(team.id)}
+                        onChange={() => toggleApprovalTeam(team.id)}
+                        disabled={approvalSubmitting}
+                      />
+                    }
+                    label={<Typography variant="body2">{team.name}</Typography>}
+                  />
+                ))}
+              </Stack>
+            )}
+            <Stack direction="row" spacing={1}>
+              <Button
+                size="small"
+                variant="contained"
+                disabled={approvalSubmitting}
+                onClick={() => void handleApproveUser()}
+              >
+                {approvalSubmitting ? 'Lagrer...' : 'Godkjenn bruker'}
+              </Button>
+              <Button
+                size="small"
+                variant="outlined"
+                color="error"
+                disabled={approvalSubmitting}
+                onClick={() => void handleDeleteUser()}
+              >
+                Ikke godkjenn og slett bruker
+              </Button>
+            </Stack>
           </Stack>
         </Alert>
       )}

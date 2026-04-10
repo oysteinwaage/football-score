@@ -12,7 +12,7 @@ function requireDatabase() {
   return database
 }
 
-export async function createUserProfile(user: User, parentName: string, childName: string): Promise<UserProfile> {
+export async function createUserProfile(user: User, parentName: string, childName: string, teamIds: string[] = []): Promise<UserProfile> {
   const now = new Date().toISOString()
   const profile: UserProfile = {
     id: user.uid,
@@ -22,7 +22,7 @@ export async function createUserProfile(user: User, parentName: string, childNam
     parentName,
     childName,
     roles: [UserRole.FORELDER],
-    teamIds: [],
+    teamIds,
     approved: false,
     createdAt: now,
     updatedAt: now,
