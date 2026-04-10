@@ -1,6 +1,7 @@
 import {
   MatchEventType,
   MatchStatus,
+  TeamType,
   UserRole,
   type GoalScorer,
   type MatchClock,
@@ -104,6 +105,7 @@ export function normalizeTeamRecord(value: unknown, id: string): TeamRecord {
   return {
     id,
     name: typeof source.name === 'string' ? source.name : '',
+    teamType: source.teamType === TeamType.CUP ? TeamType.CUP : TeamType.SERIE,
     playerNames: toStringArray(source.playerNames),
     coachNames: toStringArray(source.coachNames),
     matchIds: toStringArray(source.matchIds),

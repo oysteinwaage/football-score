@@ -1,7 +1,7 @@
 import { get, push, ref, set, update } from 'firebase/database'
 
 import { database, firebaseConfigError } from '../firebase/config'
-import { TeamRecord } from '../types/domain'
+import { TeamRecord, TeamType } from '../types/domain'
 
 function requireDatabase() {
   if (!database) {
@@ -13,6 +13,7 @@ function requireDatabase() {
 
 export interface CreateTeamInput {
   name: string
+  teamType: TeamType
   playerNames: string[]
   coachNames: string[]
 }
@@ -30,6 +31,7 @@ export async function createTeam(input: CreateTeamInput): Promise<TeamRecord> {
   const team: TeamRecord = {
     id,
     name: input.name,
+    teamType: input.teamType,
     playerNames: input.playerNames,
     coachNames: input.coachNames,
     matchIds: [],

@@ -1,3 +1,4 @@
+import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import ChatBubbleOutlineRoundedIcon from '@mui/icons-material/ChatBubbleOutlineRounded'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import FlagRoundedIcon from '@mui/icons-material/FlagRounded'
@@ -30,7 +31,7 @@ import {
   Typography,
 } from '@mui/material'
 import { useEffect, useMemo, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link as RouterLink, useParams } from 'react-router-dom'
 
 import { RosterCard } from '../components/RosterCard'
 import { useAuth } from '../context/AuthContext'
@@ -277,6 +278,16 @@ export function MatchPage() {
 
   return (
     <Stack spacing={3}>
+      {team && (
+        <Button
+          component={RouterLink}
+          to={`/teams/${team.id}`}
+          startIcon={<ArrowBackRoundedIcon />}
+          sx={{ alignSelf: 'flex-start', my: -3 }}
+        >
+          {team.name}
+        </Button>
+      )}
       {statusMessage && <Alert severity="success">{statusMessage}</Alert>}
       {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
 

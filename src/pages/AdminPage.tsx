@@ -11,9 +11,13 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControl,
   FormControlLabel,
   Grid,
   IconButton,
+  InputLabel,
+  MenuItem,
+  Select,
   Stack,
   Switch,
   TextField,
@@ -25,7 +29,7 @@ import { useAuth } from '../context/AuthContext'
 import { useCollection } from '../hooks/useRealtimeDatabase'
 import { createTeam } from '../services/teamService'
 import { deleteUserProfile, updateUserAccess } from '../services/userService'
-import { TeamRecord, UserProfile, UserRole } from '../types/domain'
+import { TeamRecord, TeamType, UserProfile, UserRole } from '../types/domain'
 
 function splitLines(value: string) {
   return value
@@ -39,6 +43,7 @@ export function AdminPage() {
   const { data: users, loading: usersLoading, error: usersError } = useCollection<UserProfile>('users')
   const { data: teams, loading: teamsLoading, error: teamsError } = useCollection<TeamRecord>('teams')
   const [teamName, setTeamName] = useState('')
+  const [newTeamType, setNewTeamType] = useState<TeamType>(TeamType.SERIE)
   const [coachNames, setCoachNames] = useState('')
   const [playerNames, setPlayerNames] = useState('')
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
@@ -60,10 +65,12 @@ export function AdminPage() {
     try {
       await createTeam({
         name: teamName.trim(),
+        teamType: newTeamType,
         coachNames: splitLines(coachNames),
         playerNames: splitLines(playerNames),
       })
       setTeamName('')
+      setNewTeamType(TeamType.SERIE)
       setCoachNames('')
       setPlayerNames('')
       setStatusMessage('Laget ble opprettet.')
@@ -135,9 +142,18 @@ export function AdminPage() {
         <Grid size={{ xs: 12, lg: 5 }}>
           <Card>
             <CardContent>
-              <Stack component="form" spacing={2} onSubmit={handleCreateTeam}>
+              <form onSubmit={handleCreateTeam}>
+              <Stack spacing={2}>
                 <Typography variant="h5">Opprett nytt lag</Typography>
                 <TextField label="Lagnavn" value={teamName} onChange={(event) => setTeamName(event.target.value)} required />
+                <FormControl size="small">
+                  <InputLabel>Lagtype</InputLabel>
+                  <Select label="Lagtype" value={newTeamType} onChange={(e) => setNewTeamType(e.target.value as TeamType)}>
+                    <MenuItem value={TeamType.SERIE}>Serie</MenuItem>
+                    <MenuItem value={TeamType.CUP}>Cup</MenuItem>
+                    <MenuItem value={TeamType.TEST}>Test</MenuItem>
+                  </Select>
+                </FormControl>
                 <TextField
                   label="Trenere"
                   value={coachNames}
@@ -158,6 +174,7 @@ export function AdminPage() {
                   Opprett lag
                 </Button>
               </Stack>
+              </form>
             </CardContent>
           </Card>
         </Grid>
@@ -198,7 +215,7 @@ export function AdminPage() {
                         Roller
                       </Typography>
                       <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
-                        {Object.values(UserRole).map((role) => (
+                        {(Object.values(UserRole) as UserRole[]).map((role) => (
                           <Chip
                             key={role}
                             label={role}

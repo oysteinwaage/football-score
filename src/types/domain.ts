@@ -1,3 +1,9 @@
+export enum TeamType {
+  SERIE = 'SERIE',
+  CUP = 'CUP',
+  TEST = 'TEST',
+}
+
 export enum UserRole {
   FORELDER = 'FORELDER',
   ADMIN = 'ADMIN',
@@ -66,6 +72,7 @@ export interface UserProfile {
 export interface TeamRecord {
   id: string
   name: string
+  teamType: TeamType
   playerNames: string[]
   coachNames: string[]
   matchIds: string[]

@@ -30,14 +30,17 @@ import { Link as RouterLink, useLocation } from 'react-router-dom'
 
 import { useAuth } from '../context/AuthContext'
 import { database } from '../firebase/config'
-import { TeamRecord, UserRole } from '../types/domain'
+import { TeamRecord, TeamType, UserRole } from '../types/domain'
 
 const drawerWidth = 280
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [lagOpen, setLagOpen] = useState(false)
-  const [teamNames, setTeamNames] = useState<Record<string, string>>({})
+  const [lagCupOpen, setLagCupOpen] = useState(false)
+  const [lagTestOpen, setLagTestOpen] = useState(false)
+  const [teamData, setTeamData] = useState<Record<string, { name: string; teamType: TeamType }>>({})
+
   const location = useLocation()
   const theme = useTheme()
   const isDesktop = useMediaQuery(theme.breakpoints.up('md'))
@@ -48,7 +51,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     const unsubscribers = profile.teamIds.map((teamId) =>
       onValue(ref(database!, `teams/${teamId}`), (snapshot) => {
         const team = snapshot.val() as TeamRecord | null
-        if (team) setTeamNames((prev) => ({ ...prev, [teamId]: team.name }))
+        if (team) setTeamData((prev) => ({ ...prev, [teamId]: { name: team.name, teamType: team.teamType ?? TeamType.SERIE } }))
       }),
     )
     return () => unsubscribers.forEach((unsub) => unsub())
@@ -98,47 +101,127 @@ export function AppShell({ children }: { children: ReactNode }) {
             <ListItemText primary={item.label} />
           </ListItemButton>
         ))}
-        {profile?.approved && profile.teamIds.length === 1 && (
-          <ListItemButton
-            component={RouterLink}
-            to={`/teams/${profile.teamIds[0]}`}
-            selected={location.pathname === `/teams/${profile.teamIds[0]}`}
-            onClick={() => setMobileOpen(false)}
-            sx={{ borderRadius: 3, mb: 0.5 }}
-          >
-            <ListItemIcon>
-              <GroupsRoundedIcon />
-            </ListItemIcon>
-            <ListItemText primary="Lag" />
-          </ListItemButton>
-        )}
-        {profile?.approved && profile.teamIds.length > 1 && (
-          <>
-            <ListItemButton onClick={() => setLagOpen(!lagOpen)} sx={{ borderRadius: 3, mb: 0.5 }}>
-              <ListItemIcon>
-                <GroupsRoundedIcon />
-              </ListItemIcon>
-              <ListItemText primary="Lag" />
-              {lagOpen ? <ExpandLessRoundedIcon /> : <ExpandMoreRoundedIcon />}
-            </ListItemButton>
-            <Collapse in={lagOpen} timeout="auto">
-              <List disablePadding sx={{ pl: 2 }}>
-                {profile.teamIds.map((teamId) => (
-                  <ListItemButton
-                    key={teamId}
-                    component={RouterLink}
-                    to={`/teams/${teamId}`}
-                    selected={location.pathname === `/teams/${teamId}`}
-                    onClick={() => setMobileOpen(false)}
-                    sx={{ borderRadius: 3, mb: 0.5 }}
-                  >
-                    <ListItemText primary={teamNames[teamId] ?? teamId} />
+        {profile?.approved && (() => {
+          const serieIds = profile.teamIds.filter((id) => (teamData[id]?.teamType ?? TeamType.SERIE) === TeamType.SERIE)
+          const cupIds = profile.teamIds.filter((id) => teamData[id]?.teamType === TeamType.CUP)
+          const testIds = profile.teamIds.filter((id) => teamData[id]?.teamType === TeamType.TEST)
+
+          return (
+            <>
+              {serieIds.length === 1 && (
+                <ListItemButton
+                  component={RouterLink}
+                  to={`/teams/${serieIds[0]}`}
+                  selected={location.pathname === `/teams/${serieIds[0]}`}
+                  onClick={() => setMobileOpen(false)}
+                  sx={{ borderRadius: 3, mb: 0.5 }}
+                >
+                  <ListItemIcon><GroupsRoundedIcon /></ListItemIcon>
+                  <ListItemText primary={teamData[serieIds[0]]?.name ?? 'Lag - serie'} />
+                </ListItemButton>
+              )}
+              {serieIds.length > 1 && (
+                <>
+                  <ListItemButton onClick={() => setLagOpen(!lagOpen)} sx={{ borderRadius: 3, mb: 0.5 }}>
+                    <ListItemIcon><GroupsRoundedIcon /></ListItemIcon>
+                    <ListItemText primary="Lag - serie" />
+                    {lagOpen ? <ExpandLessRoundedIcon /> : <ExpandMoreRoundedIcon />}
                   </ListItemButton>
-                ))}
-              </List>
-            </Collapse>
-          </>
-        )}
+                  <Collapse in={lagOpen} timeout="auto">
+                    <List disablePadding sx={{ pl: 2 }}>
+                      {serieIds.map((teamId) => (
+                        <ListItemButton
+                          key={teamId}
+                          component={RouterLink}
+                          to={`/teams/${teamId}`}
+                          selected={location.pathname === `/teams/${teamId}`}
+                          onClick={() => setMobileOpen(false)}
+                          sx={{ borderRadius: 3, mb: 0.5 }}
+                        >
+                          <ListItemText primary={teamData[teamId]?.name ?? teamId} />
+                        </ListItemButton>
+                      ))}
+                    </List>
+                  </Collapse>
+                </>
+              )}
+              {cupIds.length === 1 && (
+                <ListItemButton
+                  component={RouterLink}
+                  to={`/teams/${cupIds[0]}`}
+                  selected={location.pathname === `/teams/${cupIds[0]}`}
+                  onClick={() => setMobileOpen(false)}
+                  sx={{ borderRadius: 3, mb: 0.5 }}
+                >
+                  <ListItemIcon><GroupsRoundedIcon /></ListItemIcon>
+                  <ListItemText primary={teamData[cupIds[0]]?.name ?? 'Lag - Cup'} />
+                </ListItemButton>
+              )}
+              {cupIds.length > 1 && (
+                <>
+                  <ListItemButton onClick={() => setLagCupOpen(!lagCupOpen)} sx={{ borderRadius: 3, mb: 0.5 }}>
+                    <ListItemIcon><GroupsRoundedIcon /></ListItemIcon>
+                    <ListItemText primary="Lag - Cup" />
+                    {lagCupOpen ? <ExpandLessRoundedIcon /> : <ExpandMoreRoundedIcon />}
+                  </ListItemButton>
+                  <Collapse in={lagCupOpen} timeout="auto">
+                    <List disablePadding sx={{ pl: 2 }}>
+                      {cupIds.map((teamId) => (
+                        <ListItemButton
+                          key={teamId}
+                          component={RouterLink}
+                          to={`/teams/${teamId}`}
+                          selected={location.pathname === `/teams/${teamId}`}
+                          onClick={() => setMobileOpen(false)}
+                          sx={{ borderRadius: 3, mb: 0.5 }}
+                        >
+                          <ListItemText primary={teamData[teamId]?.name ?? teamId} />
+                        </ListItemButton>
+                      ))}
+                    </List>
+                  </Collapse>
+                </>
+              )}
+              {testIds.length === 1 && (
+                <ListItemButton
+                  component={RouterLink}
+                  to={`/teams/${testIds[0]}`}
+                  selected={location.pathname === `/teams/${testIds[0]}`}
+                  onClick={() => setMobileOpen(false)}
+                  sx={{ borderRadius: 3, mb: 0.5 }}
+                >
+                  <ListItemIcon><GroupsRoundedIcon /></ListItemIcon>
+                  <ListItemText primary={teamData[testIds[0]]?.name ?? 'TESTLAG'} />
+                </ListItemButton>
+              )}
+              {testIds.length > 1 && (
+                <>
+                  <ListItemButton onClick={() => setLagTestOpen(!lagTestOpen)} sx={{ borderRadius: 3, mb: 0.5 }}>
+                    <ListItemIcon><GroupsRoundedIcon /></ListItemIcon>
+                    <ListItemText primary="TESTLAG" />
+                    {lagTestOpen ? <ExpandLessRoundedIcon /> : <ExpandMoreRoundedIcon />}
+                  </ListItemButton>
+                  <Collapse in={lagTestOpen} timeout="auto">
+                    <List disablePadding sx={{ pl: 2 }}>
+                      {testIds.map((teamId) => (
+                        <ListItemButton
+                          key={teamId}
+                          component={RouterLink}
+                          to={`/teams/${teamId}`}
+                          selected={location.pathname === `/teams/${teamId}`}
+                          onClick={() => setMobileOpen(false)}
+                          sx={{ borderRadius: 3, mb: 0.5 }}
+                        >
+                          <ListItemText primary={teamData[teamId]?.name ?? teamId} />
+                        </ListItemButton>
+                      ))}
+                    </List>
+                  </Collapse>
+                </>
+              )}
+            </>
+          )
+        })()}
       </List>
       <Divider />
       <Box sx={{ p: 2 }}>
