@@ -3,6 +3,7 @@ import AccountCircleRoundedIcon from '@mui/icons-material/AccountCircleRounded'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSettingsRounded'
 import ArchiveRoundedIcon from '@mui/icons-material/ArchiveRounded'
+import BarChartRoundedIcon from '@mui/icons-material/BarChartRounded'
 import ExpandLessRoundedIcon from '@mui/icons-material/ExpandLessRounded'
 import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded'
 import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded'
@@ -223,6 +224,20 @@ export function AppShell({ children }: { children: ReactNode }) {
               <AdminPanelSettingsRoundedIcon />
             </ListItemIcon>
             <ListItemText primary="Admin" />
+          </ListItemButton>
+        )}
+        {profile?.approved && (profile.roles.includes(UserRole.ADMIN) || profile.roles.includes(UserRole.STATS)) && (
+          <ListItemButton
+            component={RouterLink}
+            to="/stats"
+            selected={location.pathname === '/stats'}
+            onClick={() => setMobileOpen(false)}
+            sx={{ borderRadius: 3, mb: 0.5 }}
+          >
+            <ListItemIcon>
+              <BarChartRoundedIcon />
+            </ListItemIcon>
+            <ListItemText primary="Statistikk" />
           </ListItemButton>
         )}
         {profile?.approved && (profile.roles.includes(UserRole.ADMIN) || profile.roles.includes(UserRole.TRENER)) && (

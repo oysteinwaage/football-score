@@ -9,6 +9,7 @@ export enum UserRole {
   ADMIN = 'ADMIN',
   KAMPLEDER = 'KAMPLEDER',
   TRENER = 'TRENER',
+  STATS = 'STATS',
 }
 
 export enum MatchStatus {
@@ -80,6 +81,8 @@ export interface TeamRecord {
   songUrl?: string
   songTitle?: string
   retired?: boolean
+  requireScorerModal?: boolean
+  showScorerInEvents?: boolean
   createdAt: string
   updatedAt: string
 }

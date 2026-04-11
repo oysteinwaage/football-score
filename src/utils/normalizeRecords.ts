@@ -113,6 +113,8 @@ export function normalizeTeamRecord(value: unknown, id: string): TeamRecord {
     songUrl: typeof source.songUrl === 'string' ? source.songUrl : undefined,
     songTitle: typeof source.songTitle === 'string' ? source.songTitle : undefined,
     retired: source.retired === true,
+    requireScorerModal: source.requireScorerModal !== false,
+    showScorerInEvents: source.showScorerInEvents !== false,
     createdAt: typeof source.createdAt === 'string' ? source.createdAt : new Date(0).toISOString(),
     updatedAt: typeof source.updatedAt === 'string' ? source.updatedAt : new Date(0).toISOString(),
   }

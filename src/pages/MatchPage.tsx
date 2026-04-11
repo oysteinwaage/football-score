@@ -210,20 +210,23 @@ export function MatchPage() {
     setEndMatchKeepers([])
   }
 
-  const registerGoal = async (team: 'home' | 'away', scorerName: string) => {
+  const registerGoal = async (side: 'home' | 'away', scorerName: string) => {
     const elapsedSeconds = getLiveElapsedSeconds(match.clock)
     const score = {
-      home: team === 'home' ? match.score.home + 1 : match.score.home,
-      away: team === 'away' ? match.score.away + 1 : match.score.away,
+      home: side === 'home' ? match.score.home + 1 : match.score.home,
+      away: side === 'away' ? match.score.away + 1 : match.score.away,
     }
-    const teamName = team === 'home' ? match.homeTeam : match.awayTeam
-    const isOpponent = team === opponentSide
+    const teamName = side === 'home' ? match.homeTeam : match.awayTeam
+    const isOpponent = side === opponentSide
+    const hasScorer = scorerName.trim().length > 0
     const scorer = scorerName.trim() || 'Ukjent spiller'
     const text = isOpponent
       ? `${teamName} scoret. Stillingen er nå ${score.home} - ${score.away}.`
-      : `${scorer} scoret for ${teamName}. Stillingen er nå ${score.home} - ${score.away}.`
-    const eventType = team === 'home' ? MatchEventType.GOAL_HOME : MatchEventType.GOAL_AWAY
-    const storedScorerName = isOpponent ? undefined : scorer
+      : hasScorer
+        ? `${scorer} scoret for ${teamName}. Stillingen er nå ${score.home} - ${score.away}.`
+        : `${teamName} scoret 🎉. Stillingen er nå ${score.home} - ${score.away}.`
+    const eventType = side === 'home' ? MatchEventType.GOAL_HOME : MatchEventType.GOAL_AWAY
+    const storedScorerName = isOpponent || !hasScorer ? undefined : scorer
     const nextMatch: MatchRecord = {
       ...match,
       score,
@@ -268,6 +271,11 @@ export function MatchPage() {
       away: nextEvents.filter((e) => e.type === MatchEventType.GOAL_AWAY).length,
     }
     await persistMatch({ ...match, events: nextEvents, score: nextScore }, 'Målhendelsen er fjernet.')
+  }
+
+  const removeInfoEvent = async (eventId: string) => {
+    const nextEvents = match.events.filter((e) => e.id !== eventId)
+    await persistMatch({ ...match, events: nextEvents }, 'Hendelsen er fjernet.')
   }
 
   const matchPlayerNames = match.playerNames ?? []
@@ -421,7 +429,7 @@ export function MatchPage() {
                         color="success"
                         fullWidth
                         size="large"
-                        onClick={() => setScorerModalOpen(true)}
+                        onClick={() => team?.requireScorerModal !== false ? setScorerModalOpen(true) : void registerGoal(ourSide, '')}
                         disabled={isFinished || isScheduled || isHalfTime}
                       >
                         Mål {ourTeamName}
@@ -477,6 +485,7 @@ export function MatchPage() {
               <List disablePadding>
                 {sortedEvents.map((event) => {
                   const isGoal = event.type === MatchEventType.GOAL_HOME || event.type === MatchEventType.GOAL_AWAY
+                  const isInfo = event.type === MatchEventType.INFO
                   const eventIcon = {
                     [MatchEventType.GOAL_HOME]: <SportsSoccerRoundedIcon color="success" />,
                     [MatchEventType.GOAL_AWAY]: <SportsSoccerRoundedIcon color="error" />,
@@ -487,16 +496,27 @@ export function MatchPage() {
                     [MatchEventType.INFO]: <ChatBubbleOutlineRoundedIcon color="action" />,
                   }[event.type]
                   return (
-                    <ListItem key={event.id} divider disableGutters sx={{ pr: canManage && isGoal && !isFinished ? 6 : 0 }}>
+                    <ListItem key={event.id} divider disableGutters sx={{ pr: canManage && (isGoal || isInfo) && !isFinished ? 6 : 0 }}>
                       <ListItemIcon sx={{ minWidth: 40 }}>{eventIcon}</ListItemIcon>
                       <ListItemText
-                        primary={event.text}
+                        primary={
+                          team?.showScorerInEvents === false &&
+                          event.type === (ourSide === 'home' ? MatchEventType.GOAL_HOME : MatchEventType.GOAL_AWAY) &&
+                          event.scoreAfter
+                            ? `${ourTeamName} scoret 🎉. Stillingen er nå ${event.scoreAfter.home} - ${event.scoreAfter.away}.`
+                            : event.text
+                        }
                         secondary={`${formatMatchTime(event.matchSecond)} · ${new Date(event.createdAt).toLocaleTimeString('nb-NO')}`}
                       />
-                      {canManage && isGoal && !isFinished && (
+                      {canManage && (isGoal || isInfo) && !isFinished && (
                         <ListItemSecondaryAction>
-                          <Tooltip title="Fjern målhendelse">
-                            <IconButton edge="end" size="small" color="error" onClick={() => void removeGoalEvent(event.id)}>
+                          <Tooltip title={isGoal ? 'Fjern målhendelse' : 'Fjern hendelse'}>
+                            <IconButton
+                              edge="end"
+                              size="small"
+                              color="error"
+                              onClick={() => void (isGoal ? removeGoalEvent(event.id) : removeInfoEvent(event.id))}
+                            >
                               <DeleteRoundedIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>

@@ -104,6 +104,20 @@ export async function updateTeamRoster(teamId: string, playerNames: string[], co
   })
 }
 
+export async function updateTeamRequireScorerModal(teamId: string, requireScorerModal: boolean): Promise<void> {
+  await update(ref(requireDatabase(), `teams/${teamId}`), {
+    requireScorerModal,
+    updatedAt: new Date().toISOString(),
+  })
+}
+
+export async function updateTeamShowScorerInEvents(teamId: string, showScorerInEvents: boolean): Promise<void> {
+  await update(ref(requireDatabase(), `teams/${teamId}`), {
+    showScorerInEvents,
+    updatedAt: new Date().toISOString(),
+  })
+}
+
 export async function retireTeam(teamId: string, retired: boolean): Promise<void> {
   await update(ref(requireDatabase(), `teams/${teamId}`), {
     retired,

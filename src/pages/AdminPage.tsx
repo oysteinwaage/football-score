@@ -11,6 +11,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
   FormControlLabel,
   IconButton,
   Stack,
@@ -21,6 +22,7 @@ import { useMemo, useState } from 'react'
 
 import { useAuth } from '../context/AuthContext'
 import { useCollection } from '../hooks/useRealtimeDatabase'
+import { updateTeamRequireScorerModal, updateTeamShowScorerInEvents } from '../services/teamService'
 import { deleteUserProfile, updateUserAccess } from '../services/userService'
 import { TeamRecord, UserProfile, UserRole } from '../types/domain'
 
@@ -97,6 +99,47 @@ export function AdminPage() {
       {statusMessage && <Alert severity="success">{statusMessage}</Alert>}
       {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
       {(usersError || teamsError) && <Alert severity="error">{usersError ?? teamsError}</Alert>}
+
+      <Card>
+        <CardContent>
+          <Stack spacing={2}>
+            <Typography variant="h5">Laginnstillinger</Typography>
+            {teams.filter((t) => !t.retired).length === 0 && (
+              <Alert severity="info">Ingen aktive lag.</Alert>
+            )}
+            {teams.filter((t) => !t.retired).map((team, index, arr) => (
+              <Box key={team.id}>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { sm: 'center' }, justifyContent: 'space-between' }}>
+                  <Typography sx={{ fontWeight: 700 }}>{team.name}</Typography>
+                  <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={team.requireScorerModal !== false}
+                          onChange={() => void updateTeamRequireScorerModal(team.id, team.requireScorerModal === false)}
+                        />
+                      }
+                      label="Velg målscorer"
+                      labelPlacement="start"
+                    />
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={team.showScorerInEvents !== false}
+                          onChange={() => void updateTeamShowScorerInEvents(team.id, team.showScorerInEvents === false)}
+                        />
+                      }
+                      label="Vis målscorer"
+                      labelPlacement="start"
+                    />
+                  </Stack>
+                </Stack>
+                {index < arr.length - 1 && <Divider sx={{ mt: 2 }} />}
+              </Box>
+            ))}
+          </Stack>
+        </CardContent>
+      </Card>
 
       <Stack spacing={2}>
         <Typography variant="h5">Brukere og tilganger</Typography>
