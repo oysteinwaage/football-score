@@ -53,13 +53,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       return []
     }
 
-    const items = [{ label: 'Oversikt', icon: <HomeRoundedIcon />, href: '/' }]
-
-    if (profile.roles.includes(UserRole.ADMIN)) {
-      items.push({ label: 'Admin', icon: <AdminPanelSettingsRoundedIcon />, href: '/admin' })
-    }
-
-    return items
+    return [{ label: 'Oversikt', icon: <HomeRoundedIcon />, href: '/' }]
   }, [profile])
 
   const drawer = (
@@ -217,6 +211,20 @@ export function AppShell({ children }: { children: ReactNode }) {
       </List>
       <Divider />
       <Box sx={{ p: 2 }}>
+        {profile?.approved && profile.roles.includes(UserRole.ADMIN) && (
+          <ListItemButton
+            component={RouterLink}
+            to="/admin"
+            selected={location.pathname === '/admin'}
+            onClick={() => setMobileOpen(false)}
+            sx={{ borderRadius: 3, mb: 0.5 }}
+          >
+            <ListItemIcon>
+              <AdminPanelSettingsRoundedIcon />
+            </ListItemIcon>
+            <ListItemText primary="Admin" />
+          </ListItemButton>
+        )}
         {profile?.approved && profile.roles.includes(UserRole.ADMIN) && (
           <ListItemButton
             component={RouterLink}
