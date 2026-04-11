@@ -1,6 +1,7 @@
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import ChatBubbleOutlineRoundedIcon from '@mui/icons-material/ChatBubbleOutlineRounded'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
+import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import FlagRoundedIcon from '@mui/icons-material/FlagRounded'
 import PauseCircleRoundedIcon from '@mui/icons-material/PauseCircleRounded'
 import PlayCircleRoundedIcon from '@mui/icons-material/PlayCircleRounded'
@@ -69,6 +70,11 @@ export function MatchPage() {
   const [endMatchModalOpen, setEndMatchModalOpen] = useState(false)
   const [endMatchNote, setEndMatchNote] = useState('')
   const [endMatchKeepers, setEndMatchKeepers] = useState<string[]>([])
+  const [editMatchOpen, setEditMatchOpen] = useState(false)
+  const [editHomeTeam, setEditHomeTeam] = useState('')
+  const [editAwayTeam, setEditAwayTeam] = useState('')
+  const [editStartsAt, setEditStartsAt] = useState('')
+  const [editLocation, setEditLocation] = useState('')
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
@@ -237,6 +243,24 @@ export function MatchPage() {
     setInfoNote('')
   }
 
+  const openEditMatch = () => {
+    setEditHomeTeam(match.homeTeam)
+    setEditAwayTeam(match.awayTeam)
+    const d = new Date(match.startsAt)
+    const localStartsAt = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+    setEditStartsAt(localStartsAt)
+    setEditLocation(match.location ?? '')
+    setEditMatchOpen(true)
+  }
+
+  const saveEditMatch = async () => {
+    setEditMatchOpen(false)
+    await persistMatch(
+      { ...match, homeTeam: editHomeTeam.trim(), awayTeam: editAwayTeam.trim(), startsAt: new Date(editStartsAt).toISOString(), location: editLocation.trim() },
+      'Kampinfo er oppdatert.',
+    )
+  }
+
   const removeGoalEvent = async (eventId: string) => {
     const nextEvents = match.events.filter((e) => e.id !== eventId)
     const nextScore = {
@@ -294,7 +318,16 @@ export function MatchPage() {
       <Card>
         <CardContent>
           <Stack spacing={2}>
-            <Typography variant="h4">{match.homeTeam} - {match.awayTeam}</Typography>
+            <Stack direction="row" sx={{ alignItems: 'flex-start', justifyContent: 'space-between' }}>
+              <Typography variant="h4">{match.homeTeam} - {match.awayTeam}</Typography>
+              {canEditRoster && (
+                <Tooltip title="Rediger kampinfo">
+                  <IconButton size="small" onClick={openEditMatch}>
+                    <EditRoundedIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
+            </Stack>
             <Typography color="text.secondary">
               {new Date(match.startsAt).toLocaleString('nb-NO')} · {match.location || 'Sted ikke satt'}
             </Typography>
@@ -477,6 +510,50 @@ export function MatchPage() {
           </Stack>
         </CardContent>
       </Card>
+
+      <Dialog open={editMatchOpen} onClose={() => setEditMatchOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Rediger kampinfo</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <TextField
+              label="Hjemmelag"
+              value={editHomeTeam}
+              onChange={(e) => setEditHomeTeam(e.target.value)}
+              fullWidth
+            />
+            <TextField
+              label="Bortelag"
+              value={editAwayTeam}
+              onChange={(e) => setEditAwayTeam(e.target.value)}
+              fullWidth
+            />
+            <TextField
+              label="Tidspunkt"
+              type="datetime-local"
+              value={editStartsAt}
+              onChange={(e) => setEditStartsAt(e.target.value)}
+              fullWidth
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+            <TextField
+              label="Bane / sted"
+              value={editLocation}
+              onChange={(e) => setEditLocation(e.target.value)}
+              fullWidth
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, pt: 0 }}>
+          <Button onClick={() => setEditMatchOpen(false)}>Avbryt</Button>
+          <Button
+            variant="contained"
+            onClick={() => void saveEditMatch()}
+            disabled={!editHomeTeam.trim() || !editAwayTeam.trim() || !editStartsAt}
+          >
+            Lagre
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={endMatchModalOpen} onClose={() => setEndMatchModalOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>Avslutt kamp</DialogTitle>

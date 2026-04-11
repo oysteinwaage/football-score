@@ -33,7 +33,11 @@ function formatDaysUntilMatch(startsAt: string, currentTime: number): string {
     return 'I dag'
   }
 
-  return `${daysUntil} dag${daysUntil === 1 ? '' : 'er'} til`
+  if (daysUntil === 1) {
+    return 'I morgen'
+  }
+
+  return `${daysUntil} dager til`
 }
 
 export function WelcomePage() {
@@ -242,7 +246,7 @@ export function WelcomePage() {
               <CardContent>
                 <Stack spacing={1.5}>
                   <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-                    <Typography variant="h5">Neste kamp</Typography>
+                    <Typography variant="h5">{team.teamType === 'CUP' ? 'Cup - Neste kamp' : 'Neste kamp'}</Typography>
                     <Chip label={team.name} color="secondary" variant="outlined" />
                     <Chip label={formatDaysUntilMatch(match.startsAt, currentTime)} color="primary" variant="outlined" />
                   </Stack>
