@@ -1,4 +1,6 @@
 import MenuIcon from '@mui/icons-material/Menu'
+import AccountCircleRoundedIcon from '@mui/icons-material/AccountCircleRounded'
+import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSettingsRounded'
 import ExpandLessRoundedIcon from '@mui/icons-material/ExpandLessRounded'
 import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded'
@@ -225,9 +227,34 @@ export function AppShell({ children }: { children: ReactNode }) {
       </List>
       <Divider />
       <Box sx={{ p: 2 }}>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-          {profile ? `${profile.parentName} · ${profile.childName}` : 'Ikke logget inn'}
-        </Typography>
+        {profile?.approved && profile.roles.includes(UserRole.ADMIN) && (
+          <ListItemButton
+            component={RouterLink}
+            to="/create-team"
+            selected={location.pathname === '/create-team'}
+            onClick={() => setMobileOpen(false)}
+            sx={{ borderRadius: 3, mb: 0.5 }}
+          >
+            <ListItemIcon>
+              <AddRoundedIcon />
+            </ListItemIcon>
+            <ListItemText primary="Opprett lag" />
+          </ListItemButton>
+        )}
+        {profile?.approved && (
+          <ListItemButton
+            component={RouterLink}
+            to="/profile"
+            selected={location.pathname === '/profile'}
+            onClick={() => setMobileOpen(false)}
+            sx={{ borderRadius: 3, mb: 0.5 }}
+          >
+            <ListItemIcon>
+              <AccountCircleRoundedIcon />
+            </ListItemIcon>
+            <ListItemText primary="Min side" />
+          </ListItemButton>
+        )}
         <ListItemButton onClick={() => void signOutUser()} sx={{ borderRadius: 3 }}>
           <ListItemIcon>
             <LogoutRoundedIcon />

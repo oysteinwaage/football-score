@@ -6,9 +6,11 @@ import { LoadingScreen } from './components/LoadingScreen'
 import { OnboardingForm } from './components/OnboardingForm'
 import { useAuth } from './context/AuthContext'
 import { AdminPage } from './pages/AdminPage'
+import { CreateTeamPage } from './pages/CreateTeamPage'
 import { LoginPage } from './pages/LoginPage'
 import { MatchPage } from './pages/MatchPage'
 import { PendingApprovalPage } from './pages/PendingApprovalPage'
+import { ProfilePage } from './pages/ProfilePage'
 import { TeamPage } from './pages/TeamPage'
 import { WelcomePage } from './pages/WelcomePage'
 import { UserRole } from './types/domain'
@@ -119,8 +121,10 @@ export default function App() {
         <Route path="/approval" element={<PendingApprovalPage />} />
         <Route path="/teams/:teamId" element={<TeamPage />} />
         <Route path="/matches/:matchId" element={<MatchPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
         <Route element={<AdminRoute />}>
           <Route path="/admin" element={<AdminPage />} />
+          <Route path="/create-team" element={<CreateTeamPage />} />
         </Route>
       </Route>
       <Route path="*" element={<NotFoundPage />} />

@@ -11,41 +11,23 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  FormControl,
   FormControlLabel,
-  Grid,
   IconButton,
-  InputLabel,
-  MenuItem,
-  Select,
   Stack,
   Switch,
-  TextField,
   Typography,
 } from '@mui/material'
-import { FormEvent, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 
 import { useAuth } from '../context/AuthContext'
 import { useCollection } from '../hooks/useRealtimeDatabase'
-import { createTeam } from '../services/teamService'
 import { deleteUserProfile, updateUserAccess } from '../services/userService'
-import { TeamRecord, TeamType, UserProfile, UserRole } from '../types/domain'
-
-function splitLines(value: string) {
-  return value
-    .split(/\r?\n|,/)
-    .map((item) => item.trim())
-    .filter(Boolean)
-}
+import { TeamRecord, UserProfile, UserRole } from '../types/domain'
 
 export function AdminPage() {
   const { profile } = useAuth()
   const { data: users, loading: usersLoading, error: usersError } = useCollection<UserProfile>('users')
   const { data: teams, loading: teamsLoading, error: teamsError } = useCollection<TeamRecord>('teams')
-  const [teamName, setTeamName] = useState('')
-  const [newTeamType, setNewTeamType] = useState<TeamType>(TeamType.SERIE)
-  const [coachNames, setCoachNames] = useState('')
-  const [playerNames, setPlayerNames] = useState('')
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [userPendingDeletion, setUserPendingDeletion] = useState<UserProfile | null>(null)
@@ -55,28 +37,6 @@ export function AdminPage() {
 
   if (!profile?.roles.includes(UserRole.ADMIN)) {
     return <Alert severity="error">Denne siden er bare tilgjengelig for administratorer.</Alert>
-  }
-
-  const handleCreateTeam = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    setErrorMessage(null)
-    setStatusMessage(null)
-
-    try {
-      await createTeam({
-        name: teamName.trim(),
-        teamType: newTeamType,
-        coachNames: splitLines(coachNames),
-        playerNames: splitLines(playerNames),
-      })
-      setTeamName('')
-      setNewTeamType(TeamType.SERIE)
-      setCoachNames('')
-      setPlayerNames('')
-      setStatusMessage('Laget ble opprettet.')
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Kunne ikke opprette laget.')
-    }
   }
 
   const toggleRole = async (user: UserProfile, role: UserRole) => {
@@ -138,52 +98,10 @@ export function AdminPage() {
       {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
       {(usersError || teamsError) && <Alert severity="error">{usersError ?? teamsError}</Alert>}
 
-      <Grid container spacing={3}>
-        <Grid size={{ xs: 12, lg: 5 }}>
-          <Card>
-            <CardContent>
-              <form onSubmit={handleCreateTeam}>
-              <Stack spacing={2}>
-                <Typography variant="h5">Opprett nytt lag</Typography>
-                <TextField label="Lagnavn" value={teamName} onChange={(event) => setTeamName(event.target.value)} required />
-                <FormControl size="small">
-                  <InputLabel>Lagtype</InputLabel>
-                  <Select label="Lagtype" value={newTeamType} onChange={(e) => setNewTeamType(e.target.value as TeamType)}>
-                    <MenuItem value={TeamType.SERIE}>Serie</MenuItem>
-                    <MenuItem value={TeamType.CUP}>Cup</MenuItem>
-                    <MenuItem value={TeamType.TEST}>Test</MenuItem>
-                  </Select>
-                </FormControl>
-                <TextField
-                  label="Trenere"
-                  value={coachNames}
-                  onChange={(event) => setCoachNames(event.target.value)}
-                  multiline
-                  minRows={4}
-                  helperText="Skriv ett navn per linje eller skil med komma."
-                />
-                <TextField
-                  label="Spillere"
-                  value={playerNames}
-                  onChange={(event) => setPlayerNames(event.target.value)}
-                  multiline
-                  minRows={6}
-                  helperText="Skriv ett navn per linje eller skil med komma."
-                />
-                <Button type="submit" variant="contained" disabled={!teamName.trim()}>
-                  Opprett lag
-                </Button>
-              </Stack>
-              </form>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid size={{ xs: 12, lg: 7 }}>
-          <Stack spacing={2}>
-            <Typography variant="h5">Brukere og tilganger</Typography>
-            {(usersLoading || teamsLoading) && <Alert severity="info">Laster brukere og lag...</Alert>}
-            {sortedUsers.map((user) => (
+      <Stack spacing={2}>
+        <Typography variant="h5">Brukere og tilganger</Typography>
+        {(usersLoading || teamsLoading) && <Alert severity="info">Laster brukere og lag...</Alert>}
+        {sortedUsers.map((user) => (
               <Card key={user.id}>
                 <CardContent>
                   <Stack spacing={2}>
@@ -244,9 +162,7 @@ export function AdminPage() {
                 </CardContent>
               </Card>
             ))}
-          </Stack>
-        </Grid>
-      </Grid>
+      </Stack>
 
       <Dialog
         open={Boolean(userPendingDeletion)}
