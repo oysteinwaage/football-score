@@ -15,8 +15,8 @@ export function RetiredTeamsPage() {
   const { profile } = useAuth()
   const { data: teams, loading } = useCollection<TeamRecord>('teams')
 
-  if (!profile?.roles.includes(UserRole.ADMIN)) {
-    return <Alert severity="error">Denne siden er bare tilgjengelig for administratorer.</Alert>
+  if (!profile?.roles.some((r) => r === UserRole.ADMIN || r === UserRole.TRENER)) {
+    return <Alert severity="error">Denne siden er bare tilgjengelig for administratorer og trenere.</Alert>
   }
 
   const retiredTeams = teams.filter((team) => team.retired)

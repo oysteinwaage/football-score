@@ -123,10 +123,10 @@ export default function App() {
         <Route path="/teams/:teamId" element={<TeamPage />} />
         <Route path="/matches/:matchId" element={<MatchPage />} />
         <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/retired-teams" element={<RetiredTeamsPage />} />
         <Route element={<AdminRoute />}>
           <Route path="/admin" element={<AdminPage />} />
           <Route path="/create-team" element={<CreateTeamPage />} />
-          <Route path="/retired-teams" element={<RetiredTeamsPage />} />
         </Route>
       </Route>
       <Route path="*" element={<NotFoundPage />} />

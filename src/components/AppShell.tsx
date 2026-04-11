@@ -225,7 +225,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <ListItemText primary="Admin" />
           </ListItemButton>
         )}
-        {profile?.approved && profile.roles.includes(UserRole.ADMIN) && (
+        {profile?.approved && (profile.roles.includes(UserRole.ADMIN) || profile.roles.includes(UserRole.TRENER)) && (
           <ListItemButton
             component={RouterLink}
             to="/retired-teams"
