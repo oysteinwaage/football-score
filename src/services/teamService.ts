@@ -1,7 +1,7 @@
 import { get, push, ref, remove, set, update } from 'firebase/database'
 
 import { database, firebaseConfigError } from '../firebase/config'
-import { TeamRecord, TeamType, UserProfile } from '../types/domain'
+import { TeamRecord, TeamType, UserProfile, UserRole } from '../types/domain'
 
 function requireDatabase() {
   if (!database) {
@@ -42,6 +42,23 @@ export async function createTeam(input: CreateTeamInput): Promise<TeamRecord> {
   }
 
   await set(teamRef, team)
+
+  const usersSnapshot = await get(ref(db, 'users'))
+  if (usersSnapshot.exists()) {
+    const users = usersSnapshot.val() as Record<string, UserProfile>
+    await Promise.all(
+      Object.entries(users)
+        .filter(([, user]) => user.roles?.some((role) => role === UserRole.ADMIN || role === UserRole.TRENER))
+        .filter(([, user]) => !user.teamIds?.includes(id))
+        .map(([uid, user]) =>
+          update(ref(db, `users/${uid}`), {
+            teamIds: [...(user.teamIds ?? []), id],
+            updatedAt: new Date().toISOString(),
+          }),
+        ),
+    )
+  }
+
   return team
 }
 
