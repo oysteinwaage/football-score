@@ -73,6 +73,7 @@ export interface TeamRecord {
   id: string
   name: string
   teamType: TeamType
+  cupName?: string
   playerNames: string[]
   coachNames: string[]
   matchIds: string[]

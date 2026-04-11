@@ -28,6 +28,7 @@ export function CreateTeamPage() {
   const { profile } = useAuth()
   const [teamName, setTeamName] = useState('')
   const [teamType, setTeamType] = useState<TeamType>(TeamType.SERIE)
+  const [cupName, setCupName] = useState('')
   const [coachNames, setCoachNames] = useState('')
   const [playerNames, setPlayerNames] = useState('')
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
@@ -46,11 +47,13 @@ export function CreateTeamPage() {
       await createTeam({
         name: teamName.trim(),
         teamType,
+        cupName: teamType === TeamType.CUP ? cupName.trim() : undefined,
         coachNames: splitLines(coachNames),
         playerNames: splitLines(playerNames),
       })
       setTeamName('')
       setTeamType(TeamType.SERIE)
+      setCupName('')
       setCoachNames('')
       setPlayerNames('')
       setStatusMessage('Laget ble opprettet.')
@@ -79,13 +82,22 @@ export function CreateTeamPage() {
                 <Select
                   label="Lagtype"
                   value={teamType}
-                  onChange={(e) => setTeamType(e.target.value as TeamType)}
+                  onChange={(e) => { setTeamType(e.target.value as TeamType); setCupName('') }}
                 >
                   <MenuItem value={TeamType.SERIE}>Serie</MenuItem>
                   <MenuItem value={TeamType.CUP}>Cup</MenuItem>
                   <MenuItem value={TeamType.TEST}>Test</MenuItem>
                 </Select>
               </FormControl>
+              {teamType === TeamType.CUP && (
+                <TextField
+                  label="Navn på cup"
+                  value={cupName}
+                  onChange={(e) => setCupName(e.target.value)}
+                  placeholder="f.eks. Norway Cup"
+                  required
+                />
+              )}
               <TextField
                 label="Trenere"
                 value={coachNames}

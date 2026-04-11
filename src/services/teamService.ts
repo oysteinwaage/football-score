@@ -14,6 +14,7 @@ function requireDatabase() {
 export interface CreateTeamInput {
   name: string
   teamType: TeamType
+  cupName?: string
   playerNames: string[]
   coachNames: string[]
 }
@@ -32,6 +33,7 @@ export async function createTeam(input: CreateTeamInput): Promise<TeamRecord> {
     id,
     name: input.name,
     teamType: input.teamType,
+    ...(input.cupName ? { cupName: input.cupName } : {}),
     playerNames: input.playerNames,
     coachNames: input.coachNames,
     matchIds: [],
@@ -69,9 +71,10 @@ export async function updateTeamSong(teamId: string, songUrl: string | null, son
   })
 }
 
-export async function updateTeamName(teamId: string, name: string): Promise<void> {
+export async function updateTeamName(teamId: string, name: string, cupName?: string | null): Promise<void> {
   await update(ref(requireDatabase(), `teams/${teamId}`), {
     name,
+    ...(cupName !== undefined ? { cupName: cupName ?? null } : {}),
     updatedAt: new Date().toISOString(),
   })
 }

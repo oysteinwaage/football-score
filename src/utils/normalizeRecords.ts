@@ -105,7 +105,8 @@ export function normalizeTeamRecord(value: unknown, id: string): TeamRecord {
   return {
     id,
     name: typeof source.name === 'string' ? source.name : '',
-    teamType: source.teamType === TeamType.CUP ? TeamType.CUP : TeamType.SERIE,
+    teamType: Object.values(TeamType).includes(source.teamType as TeamType) ? (source.teamType as TeamType) : TeamType.SERIE,
+    cupName: typeof source.cupName === 'string' ? source.cupName : undefined,
     playerNames: toStringArray(source.playerNames),
     coachNames: toStringArray(source.coachNames),
     matchIds: toStringArray(source.matchIds),

@@ -246,7 +246,7 @@ export function WelcomePage() {
               <CardContent>
                 <Stack spacing={1.5}>
                   <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-                    <Typography variant="h5">{team.teamType === 'CUP' ? 'Cup - Neste kamp' : 'Neste kamp'}</Typography>
+                    <Typography variant="h5">{team.teamType === 'CUP' ? `${team.cupName ?? 'Cup'} - Neste kamp` : 'Neste kamp'}</Typography>
                     <Chip label={team.name} color="secondary" variant="outlined" />
                     <Chip label={formatDaysUntilMatch(match.startsAt, currentTime)} color="primary" variant="outlined" />
                   </Stack>
@@ -274,7 +274,7 @@ export function WelcomePage() {
                 {visibleTeams.map((team) => (
                   <Card key={team.id} variant="outlined" component={RouterLink} to={`/teams/${team.id}`} sx={{ textDecoration: 'none' }}>
                     <CardContent>
-                      <Typography variant="h6">{team.name}</Typography>
+                      <Typography variant="h6">{team.teamType === 'CUP' ? `${team.cupName ?? 'Cup'} - ${team.name}` : team.name}</Typography>
                       <Typography color="text.secondary">
                         {team.playerNames.length} spillere · {team.coachNames.length} trenere · {team.matchIds.length} kamper
                       </Typography>

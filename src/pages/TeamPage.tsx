@@ -42,6 +42,7 @@ export function TeamPage() {
   const { data: matches, loading: matchesLoading } = useCollection<MatchRecord>('matches')
   const [editingName, setEditingName] = useState(false)
   const [nameValue, setNameValue] = useState('')
+  const [cupNameValue, setCupNameValue] = useState('')
   const [nameSaving, setNameSaving] = useState(false)
   const [editingSong, setEditingSong] = useState(false)
   const [songValue, setSongValue] = useState('')
@@ -81,13 +82,14 @@ export function TeamPage() {
 
   const handleSaveName = async () => {
     const trimmed = nameValue.trim()
-    if (!trimmed || trimmed === team.name) {
+    if (!trimmed) {
       setEditingName(false)
       return
     }
     setNameSaving(true)
     try {
-      await updateTeamName(teamId, trimmed)
+      const isCup = team.teamType === 'CUP'
+      await updateTeamName(teamId, trimmed, isCup ? cupNameValue.trim() || null : undefined)
       setEditingName(false)
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Kunne ikke lagre lagnavnet.')
@@ -239,37 +241,59 @@ export function TeamPage() {
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ justifyContent: 'space-between' }}>
         <div>
           {editingName ? (
-            <TextField
-              value={nameValue}
-              onChange={(e) => setNameValue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') void handleSaveName()
-                if (e.key === 'Escape') setEditingName(false)
-              }}
-              disabled={nameSaving}
-              autoFocus
-              size="small"
-              slotProps={{
-                input: {
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton size="small" onClick={() => void handleSaveName()} disabled={nameSaving}>
-                        <CheckRoundedIcon fontSize="small" />
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                },
-              }}
-            />
+            <Stack spacing={1}>
+              <TextField
+                value={nameValue}
+                onChange={(e) => setNameValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') void handleSaveName()
+                  if (e.key === 'Escape') setEditingName(false)
+                }}
+                disabled={nameSaving}
+                autoFocus
+                size="small"
+                label="Lagnavn"
+                slotProps={{
+                  input: {
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton size="small" onClick={() => void handleSaveName()} disabled={nameSaving}>
+                          <CheckRoundedIcon fontSize="small" />
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  },
+                }}
+              />
+              {team.teamType === 'CUP' && (
+                <TextField
+                  value={cupNameValue}
+                  onChange={(e) => setCupNameValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') void handleSaveName()
+                    if (e.key === 'Escape') setEditingName(false)
+                  }}
+                  disabled={nameSaving}
+                  size="small"
+                  label="Navn på cup"
+                  placeholder="f.eks. Norway Cup"
+                />
+              )}
+            </Stack>
           ) : (
             <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
               <Typography variant="h4">{team.name}</Typography>
               {isAdmin && (
-                <IconButton size="small" onClick={() => { setNameValue(team.name); setEditingName(true) }}>
+                <IconButton size="small" onClick={() => { setNameValue(team.name); setCupNameValue(team.cupName ?? ''); setEditingName(true) }}>
                   <EditRoundedIcon fontSize="small" />
                 </IconButton>
               )}
             </Stack>
+          )}
+          {!editingName && team.teamType === 'CUP' && (
+            <Typography color="text.secondary" sx={{ fontStyle: 'italic' }}>
+              {team.cupName || 'Mangler cup-navn'}
+            </Typography>
           )}
           <Typography color="text.secondary">
             {team.playerNames.length} spillere · {team.coachNames.length} trenere
