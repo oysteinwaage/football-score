@@ -1,5 +1,6 @@
 import {
   GoogleAuthProvider,
+  OAuthProvider,
   User,
   browserLocalPersistence,
   onAuthStateChanged,
@@ -24,6 +25,7 @@ interface AuthContextValue {
   firebaseReady: boolean
   configError: string | null
   signInWithGoogle: () => Promise<void>
+  signInWithMicrosoft: () => Promise<void>
   signOutUser: () => Promise<void>
   completeOnboarding: (parentName: string, childName: string, teamIds: string[]) => Promise<void>
 }
@@ -100,6 +102,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         const provider = new GoogleAuthProvider()
+        await signInWithPopup(auth, provider)
+      },
+      signInWithMicrosoft: async () => {
+        if (!auth) {
+          throw new Error(firebaseConfigError ?? 'Firebase er ikke konfigurert.')
+        }
+
+        const provider = new OAuthProvider('microsoft.com')
         await signInWithPopup(auth, provider)
       },
       signOutUser: async () => {
