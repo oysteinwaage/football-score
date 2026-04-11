@@ -61,7 +61,7 @@ export function TeamPage() {
   const [deletingTeam, setDeletingTeam] = useState(false)
   const [retiringTeam, setRetiringTeam] = useState(false)
 
-  const canManage = Boolean(profile?.roles.some((role) => role === UserRole.ADMIN || role === UserRole.KAMPLEDER))
+  const canManage = Boolean(profile?.roles.some((role) => role === UserRole.ADMIN || role === UserRole.KAMPLEDER || role === UserRole.TRENER))
   const canEditRoster = Boolean(profile?.roles.some((role) => role === UserRole.ADMIN || role === UserRole.TRENER))
   const isAdmin = Boolean(profile?.roles.includes(UserRole.ADMIN))
   const hasAccess = Boolean(profile && (isAdmin || profile.teamIds.includes(teamId)))
