@@ -46,7 +46,7 @@ export function LoginPage() {
                 Live Score
               </Typography>
               <Typography color="text.secondary">
-                Logg inn for å følge laget som forelder eller trener. Det blir live oppdatering underveis i kampene.
+                Logg inn for å følge laget som forelder eller trener. Det blir live oppdatering underveis i kampene. Og som en liten bonus kan lagsangene til serielagene spilles av inne på lagsiden! 🎶🎸🎉
               </Typography>
             </div>
             {configError && <Alert severity="warning">{configError}</Alert>}
