@@ -1,4 +1,6 @@
 import AddCircleRoundedIcon from '@mui/icons-material/AddCircleRounded'
+import ArchiveRoundedIcon from '@mui/icons-material/ArchiveRounded'
+import UnarchiveRoundedIcon from '@mui/icons-material/UnarchiveRounded'
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded'
 import CloudDownloadRoundedIcon from '@mui/icons-material/CloudDownloadRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
@@ -30,7 +32,7 @@ import { useAuth } from '../context/AuthContext'
 import { useCollection, useDocument } from '../hooks/useRealtimeDatabase'
 import { fetchFotballCalendar } from '../services/fotballCalendar'
 import { createMatch, deleteMatch, importFixtures, updateMatch } from '../services/matchService'
-import { deleteTeam, updateTeamName, updateTeamRoster, updateTeamSong } from '../services/teamService'
+import { deleteTeam, retireTeam, updateTeamName, updateTeamRoster, updateTeamSong } from '../services/teamService'
 import { MatchRecord, MatchStatus, TeamRecord, UserRole } from '../types/domain'
 import { getMatchOutcomeBackground, getMatchOutcomeForTeam } from '../utils/matchCardColors'
 
@@ -57,6 +59,7 @@ export function TeamPage() {
   const [deletingMatch, setDeletingMatch] = useState(false)
   const [teamDeleteDialogOpen, setTeamDeleteDialogOpen] = useState(false)
   const [deletingTeam, setDeletingTeam] = useState(false)
+  const [retiringTeam, setRetiringTeam] = useState(false)
 
   const canManage = Boolean(profile?.roles.some((role) => role === UserRole.ADMIN || role === UserRole.KAMPLEDER))
   const canEditRoster = Boolean(profile?.roles.some((role) => role === UserRole.ADMIN || role === UserRole.TRENER))
@@ -178,6 +181,19 @@ export function TeamPage() {
       setErrorMessage(error instanceof Error ? error.message : 'Kunne ikke slette kampen.')
     } finally {
       setDeletingMatch(false)
+    }
+  }
+
+  const handleRetireTeam = async (retired: boolean) => {
+    setRetiringTeam(true)
+    setErrorMessage(null)
+    try {
+      await retireTeam(teamId, retired)
+      setStatusMessage(retired ? 'Laget er pensjonert.' : 'Laget er aktivert igjen.')
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Kunne ikke pensjonere laget.')
+    } finally {
+      setRetiringTeam(false)
     }
   }
 
@@ -303,6 +319,17 @@ export function TeamPage() {
           {canManage && (
             <Button variant="contained" startIcon={<AddCircleRoundedIcon />} onClick={() => setDialogOpen(true)}>
               Legg til kamp
+            </Button>
+          )}
+          {isAdmin && (
+            <Button
+              variant="outlined"
+              color="warning"
+              startIcon={team.retired ? <UnarchiveRoundedIcon /> : <ArchiveRoundedIcon />}
+              onClick={() => void handleRetireTeam(!team.retired)}
+              disabled={retiringTeam}
+            >
+              {team.retired ? 'Aktiver lag' : 'Pensjonér lag'}
             </Button>
           )}
           {isAdmin && (

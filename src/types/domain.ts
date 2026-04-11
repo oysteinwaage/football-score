@@ -79,6 +79,7 @@ export interface TeamRecord {
   matchIds: string[]
   songUrl?: string
   songTitle?: string
+  retired?: boolean
   createdAt: string
   updatedAt: string
 }

@@ -87,6 +87,13 @@ export async function updateTeamRoster(teamId: string, playerNames: string[], co
   })
 }
 
+export async function retireTeam(teamId: string, retired: boolean): Promise<void> {
+  await update(ref(requireDatabase(), `teams/${teamId}`), {
+    retired,
+    updatedAt: new Date().toISOString(),
+  })
+}
+
 export async function deleteTeam(teamId: string): Promise<void> {
   const db = requireDatabase()
 

@@ -11,6 +11,7 @@ import { LoginPage } from './pages/LoginPage'
 import { MatchPage } from './pages/MatchPage'
 import { PendingApprovalPage } from './pages/PendingApprovalPage'
 import { ProfilePage } from './pages/ProfilePage'
+import { RetiredTeamsPage } from './pages/RetiredTeamsPage'
 import { TeamPage } from './pages/TeamPage'
 import { WelcomePage } from './pages/WelcomePage'
 import { UserRole } from './types/domain'
@@ -125,6 +126,7 @@ export default function App() {
         <Route element={<AdminRoute />}>
           <Route path="/admin" element={<AdminPage />} />
           <Route path="/create-team" element={<CreateTeamPage />} />
+          <Route path="/retired-teams" element={<RetiredTeamsPage />} />
         </Route>
       </Route>
       <Route path="*" element={<NotFoundPage />} />

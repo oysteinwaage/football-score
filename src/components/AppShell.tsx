@@ -2,6 +2,7 @@ import MenuIcon from '@mui/icons-material/Menu'
 import AccountCircleRoundedIcon from '@mui/icons-material/AccountCircleRounded'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSettingsRounded'
+import ArchiveRoundedIcon from '@mui/icons-material/ArchiveRounded'
 import ExpandLessRoundedIcon from '@mui/icons-material/ExpandLessRounded'
 import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded'
 import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded'
@@ -26,12 +27,11 @@ import {
   useMediaQuery,
 } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
-import { onValue, ref } from 'firebase/database'
-import { ReactNode, useEffect, useMemo, useState } from 'react'
+import { ReactNode, useMemo, useState } from 'react'
 import { Link as RouterLink, useLocation } from 'react-router-dom'
 
 import { useAuth } from '../context/AuthContext'
-import { database } from '../firebase/config'
+import { useCollection } from '../hooks/useRealtimeDatabase'
 import { TeamRecord, TeamType, UserRole } from '../types/domain'
 
 const drawerWidth = 280
@@ -41,23 +41,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [lagOpen, setLagOpen] = useState(false)
   const [lagCupOpen, setLagCupOpen] = useState(false)
   const [lagTestOpen, setLagTestOpen] = useState(false)
-  const [teamData, setTeamData] = useState<Record<string, { name: string; teamType: TeamType }>>({})
 
   const location = useLocation()
   const theme = useTheme()
   const isDesktop = useMediaQuery(theme.breakpoints.up('md'))
   const { profile, signOutUser } = useAuth()
-
-  useEffect(() => {
-    if (!database || !profile?.teamIds?.length) return
-    const unsubscribers = profile.teamIds.map((teamId) =>
-      onValue(ref(database!, `teams/${teamId}`), (snapshot) => {
-        const team = snapshot.val() as TeamRecord | null
-        if (team) setTeamData((prev) => ({ ...prev, [teamId]: { name: team.name, teamType: team.teamType ?? TeamType.SERIE } }))
-      }),
-    )
-    return () => unsubscribers.forEach((unsub) => unsub())
-  }, [profile?.teamIds])
+  const { data: allTeams } = useCollection<TeamRecord>('teams')
 
   const navigationItems = useMemo(() => {
     if (!profile?.approved) {
@@ -104,25 +93,26 @@ export function AppShell({ children }: { children: ReactNode }) {
           </ListItemButton>
         ))}
         {profile?.approved && (() => {
-          const serieIds = profile.teamIds.filter((id) => (teamData[id]?.teamType ?? TeamType.SERIE) === TeamType.SERIE)
-          const cupIds = profile.teamIds.filter((id) => teamData[id]?.teamType === TeamType.CUP)
-          const testIds = profile.teamIds.filter((id) => teamData[id]?.teamType === TeamType.TEST)
+          const activeTeams = allTeams.filter((t) => profile.teamIds.includes(t.id) && !t.retired)
+          const serieTeams = activeTeams.filter((t) => (t.teamType ?? TeamType.SERIE) === TeamType.SERIE)
+          const cupTeams = activeTeams.filter((t) => t.teamType === TeamType.CUP)
+          const testTeams = activeTeams.filter((t) => t.teamType === TeamType.TEST)
 
           return (
             <>
-              {serieIds.length === 1 && (
+              {serieTeams.length === 1 && (
                 <ListItemButton
                   component={RouterLink}
-                  to={`/teams/${serieIds[0]}`}
-                  selected={location.pathname === `/teams/${serieIds[0]}`}
+                  to={`/teams/${serieTeams[0].id}`}
+                  selected={location.pathname === `/teams/${serieTeams[0].id}`}
                   onClick={() => setMobileOpen(false)}
                   sx={{ borderRadius: 3, mb: 0.5 }}
                 >
                   <ListItemIcon><GroupsRoundedIcon /></ListItemIcon>
-                  <ListItemText primary={teamData[serieIds[0]]?.name ?? 'Lag - serie'} />
+                  <ListItemText primary={serieTeams[0].name} />
                 </ListItemButton>
               )}
-              {serieIds.length > 1 && (
+              {serieTeams.length > 1 && (
                 <>
                   <ListItemButton onClick={() => setLagOpen(!lagOpen)} sx={{ borderRadius: 3, mb: 0.5 }}>
                     <ListItemIcon><GroupsRoundedIcon /></ListItemIcon>
@@ -131,35 +121,35 @@ export function AppShell({ children }: { children: ReactNode }) {
                   </ListItemButton>
                   <Collapse in={lagOpen} timeout="auto">
                     <List disablePadding sx={{ pl: 2 }}>
-                      {serieIds.map((teamId) => (
+                      {serieTeams.map((team) => (
                         <ListItemButton
-                          key={teamId}
+                          key={team.id}
                           component={RouterLink}
-                          to={`/teams/${teamId}`}
-                          selected={location.pathname === `/teams/${teamId}`}
+                          to={`/teams/${team.id}`}
+                          selected={location.pathname === `/teams/${team.id}`}
                           onClick={() => setMobileOpen(false)}
                           sx={{ borderRadius: 3, mb: 0.5 }}
                         >
-                          <ListItemText primary={teamData[teamId]?.name ?? teamId} />
+                          <ListItemText primary={team.name} />
                         </ListItemButton>
                       ))}
                     </List>
                   </Collapse>
                 </>
               )}
-              {cupIds.length === 1 && (
+              {cupTeams.length === 1 && (
                 <ListItemButton
                   component={RouterLink}
-                  to={`/teams/${cupIds[0]}`}
-                  selected={location.pathname === `/teams/${cupIds[0]}`}
+                  to={`/teams/${cupTeams[0].id}`}
+                  selected={location.pathname === `/teams/${cupTeams[0].id}`}
                   onClick={() => setMobileOpen(false)}
                   sx={{ borderRadius: 3, mb: 0.5 }}
                 >
                   <ListItemIcon><GroupsRoundedIcon /></ListItemIcon>
-                  <ListItemText primary={teamData[cupIds[0]]?.name ?? 'Lag - Cup'} />
+                  <ListItemText primary={cupTeams[0].name} />
                 </ListItemButton>
               )}
-              {cupIds.length > 1 && (
+              {cupTeams.length > 1 && (
                 <>
                   <ListItemButton onClick={() => setLagCupOpen(!lagCupOpen)} sx={{ borderRadius: 3, mb: 0.5 }}>
                     <ListItemIcon><GroupsRoundedIcon /></ListItemIcon>
@@ -168,35 +158,35 @@ export function AppShell({ children }: { children: ReactNode }) {
                   </ListItemButton>
                   <Collapse in={lagCupOpen} timeout="auto">
                     <List disablePadding sx={{ pl: 2 }}>
-                      {cupIds.map((teamId) => (
+                      {cupTeams.map((team) => (
                         <ListItemButton
-                          key={teamId}
+                          key={team.id}
                           component={RouterLink}
-                          to={`/teams/${teamId}`}
-                          selected={location.pathname === `/teams/${teamId}`}
+                          to={`/teams/${team.id}`}
+                          selected={location.pathname === `/teams/${team.id}`}
                           onClick={() => setMobileOpen(false)}
                           sx={{ borderRadius: 3, mb: 0.5 }}
                         >
-                          <ListItemText primary={teamData[teamId]?.name ?? teamId} />
+                          <ListItemText primary={team.name} />
                         </ListItemButton>
                       ))}
                     </List>
                   </Collapse>
                 </>
               )}
-              {testIds.length === 1 && (
+              {testTeams.length === 1 && (
                 <ListItemButton
                   component={RouterLink}
-                  to={`/teams/${testIds[0]}`}
-                  selected={location.pathname === `/teams/${testIds[0]}`}
+                  to={`/teams/${testTeams[0].id}`}
+                  selected={location.pathname === `/teams/${testTeams[0].id}`}
                   onClick={() => setMobileOpen(false)}
                   sx={{ borderRadius: 3, mb: 0.5 }}
                 >
                   <ListItemIcon><GroupsRoundedIcon /></ListItemIcon>
-                  <ListItemText primary={teamData[testIds[0]]?.name ?? 'TESTLAG'} />
+                  <ListItemText primary={testTeams[0].name} />
                 </ListItemButton>
               )}
-              {testIds.length > 1 && (
+              {testTeams.length > 1 && (
                 <>
                   <ListItemButton onClick={() => setLagTestOpen(!lagTestOpen)} sx={{ borderRadius: 3, mb: 0.5 }}>
                     <ListItemIcon><GroupsRoundedIcon /></ListItemIcon>
@@ -205,16 +195,16 @@ export function AppShell({ children }: { children: ReactNode }) {
                   </ListItemButton>
                   <Collapse in={lagTestOpen} timeout="auto">
                     <List disablePadding sx={{ pl: 2 }}>
-                      {testIds.map((teamId) => (
+                      {testTeams.map((team) => (
                         <ListItemButton
-                          key={teamId}
+                          key={team.id}
                           component={RouterLink}
-                          to={`/teams/${teamId}`}
-                          selected={location.pathname === `/teams/${teamId}`}
+                          to={`/teams/${team.id}`}
+                          selected={location.pathname === `/teams/${team.id}`}
                           onClick={() => setMobileOpen(false)}
                           sx={{ borderRadius: 3, mb: 0.5 }}
                         >
-                          <ListItemText primary={teamData[teamId]?.name ?? teamId} />
+                          <ListItemText primary={team.name} />
                         </ListItemButton>
                       ))}
                     </List>
@@ -227,6 +217,20 @@ export function AppShell({ children }: { children: ReactNode }) {
       </List>
       <Divider />
       <Box sx={{ p: 2 }}>
+        {profile?.approved && profile.roles.includes(UserRole.ADMIN) && (
+          <ListItemButton
+            component={RouterLink}
+            to="/retired-teams"
+            selected={location.pathname === '/retired-teams'}
+            onClick={() => setMobileOpen(false)}
+            sx={{ borderRadius: 3, mb: 0.5 }}
+          >
+            <ListItemIcon>
+              <ArchiveRoundedIcon />
+            </ListItemIcon>
+            <ListItemText primary="Pensjonerte lag" />
+          </ListItemButton>
+        )}
         {profile?.approved && profile.roles.includes(UserRole.ADMIN) && (
           <ListItemButton
             component={RouterLink}
