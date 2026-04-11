@@ -246,7 +246,12 @@ export function WelcomePage() {
               <CardContent>
                 <Stack spacing={1.5}>
                   <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-                    <Typography variant="h5">{team.teamType === 'CUP' ? `${team.cupName ?? 'Cup'} - Neste kamp` : 'Neste kamp'}</Typography>
+                    <Typography variant="h5">Neste kamp</Typography>
+                    {team.teamType === 'CUP' && (
+                      <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                        {team.cupName ?? 'Cup'}
+                      </Typography>
+                    )}
                     <Chip label={team.name} color="secondary" variant="outlined" />
                     <Chip label={formatDaysUntilMatch(match.startsAt, currentTime)} color="primary" variant="outlined" />
                   </Stack>
