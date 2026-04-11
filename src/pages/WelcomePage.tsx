@@ -245,15 +245,19 @@ export function WelcomePage() {
             <Card key={team.id} component={RouterLink} to={`/matches/${match.id}`} sx={{ textDecoration: 'none', color: 'inherit' }}>
               <CardContent>
                 <Stack spacing={1.5}>
-                  <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-                    <Typography variant="h5">Neste kamp</Typography>
-                    {team.teamType === 'CUP' && (
-                      <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                        {team.cupName ?? 'Cup'}
-                      </Typography>
-                    )}
-                    <Chip label={team.name} color="secondary" variant="outlined" />
-                    <Chip label={formatDaysUntilMatch(match.startsAt, currentTime)} color="primary" variant="outlined" />
+                  <Stack spacing={0.5}>
+                    <Stack direction="row" spacing={1} sx={{ alignItems: 'baseline' }}>
+                      <Typography variant="h5">Neste kamp</Typography>
+                      {team.teamType === 'CUP' && (
+                        <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                          {team.cupName ?? 'Cup'}
+                        </Typography>
+                      )}
+                    </Stack>
+                    <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+                      <Chip label={team.name} color="secondary" variant="outlined" />
+                      <Chip label={formatDaysUntilMatch(match.startsAt, currentTime)} color="primary" variant="outlined" />
+                    </Stack>
                   </Stack>
                   <Typography variant="h6">
                     {match.homeTeam} - {match.awayTeam}
