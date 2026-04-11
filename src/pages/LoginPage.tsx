@@ -46,7 +46,7 @@ export function LoginPage() {
                 Live Score
               </Typography>
               <Typography color="text.secondary">
-                Logg inn for å følge laget, registrere kamphendelser og administrere tilgang.
+                Logg inn for å følge laget som forelder eller trener. Det blir live oppdatering underveis i kampene.
               </Typography>
             </div>
             {configError && <Alert severity="warning">{configError}</Alert>}
