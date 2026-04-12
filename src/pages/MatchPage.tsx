@@ -546,8 +546,8 @@ export function MatchPage() {
                   const isGoal = event.type === MatchEventType.GOAL_HOME || event.type === MatchEventType.GOAL_AWAY
                   const isInfo = event.type === MatchEventType.INFO
                   const eventIcon = {
-                    [MatchEventType.GOAL_HOME]: <SportsSoccerRoundedIcon color="success" />,
-                    [MatchEventType.GOAL_AWAY]: <SportsSoccerRoundedIcon color="error" />,
+                    [MatchEventType.GOAL_HOME]: <SportsSoccerRoundedIcon color={ourSide === 'home' ? 'success' : 'error'} />,
+                    [MatchEventType.GOAL_AWAY]: <SportsSoccerRoundedIcon color={ourSide === 'away' ? 'success' : 'error'} />,
                     [MatchEventType.MATCH_STARTED]: <PlayCircleRoundedIcon color="primary" />,
                     [MatchEventType.MATCH_PAUSED]: <PauseCircleRoundedIcon color="warning" />,
                     [MatchEventType.SECOND_HALF_STARTED]: <PlayCircleRoundedIcon color="primary" />,
