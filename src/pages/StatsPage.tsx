@@ -26,7 +26,7 @@ import { useMemo, useState } from 'react'
 
 import { useAuth } from '../context/AuthContext'
 import { useCollection } from '../hooks/useRealtimeDatabase'
-import { MatchRecord, MatchStatus, TeamRecord, UserRole } from '../types/domain'
+import { MatchRecord, MatchStatus, TeamRecord, TeamType, UserRole } from '../types/domain'
 
 function StatCard({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
   return (
@@ -55,7 +55,7 @@ export function StatsPage() {
     return <Alert severity="error">Du har ikke tilgang til denne siden.</Alert>
   }
 
-  const accessibleTeams = allTeams.filter((t) => !t.retired && (profile?.roles.includes(UserRole.ADMIN) || profile?.teamIds.includes(t.id)))
+  const accessibleTeams = allTeams.filter((t) => profile?.roles.includes(UserRole.ADMIN) || profile?.teamIds.includes(t.id))
 
   const selectedTeam = accessibleTeams.find((t) => t.id === selectedTeamId) ?? null
 
@@ -137,7 +137,9 @@ export function StatsPage() {
           onChange={(e) => setSelectedTeamId(e.target.value as string)}
         >
           {accessibleTeams.map((team) => (
-            <MenuItem key={team.id} value={team.id}>{team.name}</MenuItem>
+            <MenuItem key={team.id} value={team.id}>
+              {team.name}{team.teamType === TeamType.CUP && team.cupName && <> – <em>{team.cupName}</em></>}
+            </MenuItem>
           ))}
         </Select>
       </FormControl>
