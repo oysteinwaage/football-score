@@ -192,7 +192,7 @@ export function AdminPage() {
                         Lagtilganger
                       </Typography>
                       <Stack>
-                        {teams.map((team) => (
+                        {teams.filter((t) => !t.retired).map((team) => (
                           <FormControlLabel
                             key={team.id}
                             control={<Checkbox checked={!!user.teamIds?.includes(team.id)} onChange={() => void toggleTeam(user, team.id)} />}

@@ -316,7 +316,7 @@ export function TeamPage() {
           </Typography>
         </div>
         <Stack direction="row" spacing={1}>
-          {canManage && (
+          {canManage && !team.retired && (
             <Button variant="contained" startIcon={<AddCircleRoundedIcon />} onClick={() => setDialogOpen(true)}>
               Legg til kamp
             </Button>
@@ -434,7 +434,7 @@ export function TeamPage() {
           <RosterCard
             title="Trenere"
             names={team.coachNames}
-            canEdit={canEditRoster}
+            canEdit={canEditRoster && !team.retired}
             onRemove={handleRemoveCoach}
             onAdd={handleAddCoach}
           />
@@ -443,7 +443,7 @@ export function TeamPage() {
           <RosterCard
             title="Spillere"
             names={team.playerNames}
-            canEdit={canEditRoster}
+            canEdit={canEditRoster && !team.retired}
             onRemove={handleRemovePlayer}
             onAdd={handleAddPlayer}
           />
