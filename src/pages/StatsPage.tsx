@@ -295,7 +295,7 @@ export function StatsPage() {
                       .slice()
                       .sort((a, b) => b.startsAt.localeCompare(a.startsAt))
                       .map((match) => {
-                        const ourSide: 'home' | 'away' = selectedTeam.name === match.awayTeam ? 'away' : 'home'
+                        const ourSide: 'home' | 'away' = selectedTeam!.name === match.awayTeam ? 'away' : 'home'
                         const theirSide: 'home' | 'away' = ourSide === 'home' ? 'away' : 'home'
                         const opponent = ourSide === 'home' ? match.awayTeam : match.homeTeam
                         const ourScore = match.score[ourSide]

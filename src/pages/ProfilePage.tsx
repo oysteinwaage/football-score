@@ -25,6 +25,7 @@ const roleLabels: Record<UserRole, string> = {
   [UserRole.TRENER]: 'Trener',
   [UserRole.KAMPLEDER]: 'Kampleder',
   [UserRole.FORELDER]: 'Forelder',
+  [UserRole.STATS]: 'Stats',
 }
 
 export function ProfilePage() {
