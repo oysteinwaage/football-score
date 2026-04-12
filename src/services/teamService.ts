@@ -118,6 +118,13 @@ export async function updateTeamShowScorerInEvents(teamId: string, showScorerInE
   })
 }
 
+export async function updateTeamShowScorerInEventsForCoach(teamId: string, showScorerInEventsForCoach: boolean): Promise<void> {
+  await update(ref(requireDatabase(), `teams/${teamId}`), {
+    showScorerInEventsForCoach,
+    updatedAt: new Date().toISOString(),
+  })
+}
+
 export async function retireTeam(teamId: string, retired: boolean): Promise<void> {
   await update(ref(requireDatabase(), `teams/${teamId}`), {
     retired,

@@ -81,6 +81,7 @@ export function MatchPage() {
 
   const canManage = Boolean(profile?.roles.some((role) => role === UserRole.ADMIN || role === UserRole.KAMPLEDER || role === UserRole.TRENER))
   const canEditRoster = Boolean(profile?.roles.some((role) => role === UserRole.ADMIN || role === UserRole.TRENER))
+  const isTrenerOrAdmin = Boolean(profile?.roles.some((role) => role === UserRole.ADMIN || role === UserRole.TRENER))
   const hasAccess = Boolean(profile && (profile.roles.includes(UserRole.ADMIN) || (match && profile.teamIds.includes(match.teamId))))
 
   useEffect(() => {
@@ -562,6 +563,7 @@ export function MatchPage() {
                           <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
                             <span>
                               {team?.showScorerInEvents === false &&
+                              !(team?.showScorerInEventsForCoach && isTrenerOrAdmin) &&
                               event.type === (ourSide === 'home' ? MatchEventType.GOAL_HOME : MatchEventType.GOAL_AWAY) &&
                               event.scoreAfter
                                 ? `${ourTeamName} scoret 🎉. Stillingen er nå ${event.scoreAfter.home} - ${event.scoreAfter.away}.`

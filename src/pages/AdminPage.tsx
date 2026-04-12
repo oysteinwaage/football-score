@@ -22,7 +22,7 @@ import { useMemo, useState } from 'react'
 
 import { useAuth } from '../context/AuthContext'
 import { useCollection } from '../hooks/useRealtimeDatabase'
-import { updateTeamRequireScorerModal, updateTeamShowScorerInEvents } from '../services/teamService'
+import { updateTeamRequireScorerModal, updateTeamShowScorerInEvents, updateTeamShowScorerInEventsForCoach } from '../services/teamService'
 import { deleteUserProfile, updateUserAccess } from '../services/userService'
 import { TeamRecord, UserProfile, UserRole } from '../types/domain'
 
@@ -130,6 +130,16 @@ export function AdminPage() {
                         />
                       }
                       label="Vis målscorer"
+                      labelPlacement="start"
+                    />
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={team.showScorerInEventsForCoach === true}
+                          onChange={() => void updateTeamShowScorerInEventsForCoach(team.id, team.showScorerInEventsForCoach !== true)}
+                        />
+                      }
+                      label="Vis målscorer (trenere)"
                       labelPlacement="start"
                     />
                   </Stack>

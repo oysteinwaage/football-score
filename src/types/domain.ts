@@ -84,6 +84,7 @@ export interface TeamRecord {
   retired?: boolean
   requireScorerModal?: boolean
   showScorerInEvents?: boolean
+  showScorerInEventsForCoach?: boolean
   createdAt: string
   updatedAt: string
 }
