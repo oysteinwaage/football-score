@@ -70,6 +70,7 @@ export function MatchPage() {
   const [endMatchModalOpen, setEndMatchModalOpen] = useState(false)
   const [endMatchNote, setEndMatchNote] = useState('')
   const [endMatchKeepers, setEndMatchKeepers] = useState<string[]>([])
+  const [correctionMode, setCorrectionMode] = useState(false)
   const [editMatchOpen, setEditMatchOpen] = useState(false)
   const [editHomeTeam, setEditHomeTeam] = useState('')
   const [editAwayTeam, setEditAwayTeam] = useState('')
@@ -227,10 +228,14 @@ export function MatchPage() {
         : `${teamName} scoret 🎉. Stillingen er nå ${score.home} - ${score.away}.`
     const eventType = side === 'home' ? MatchEventType.GOAL_HOME : MatchEventType.GOAL_AWAY
     const storedScorerName = isOpponent || !hasScorer ? undefined : scorer
+    const newEvent: MatchEvent = {
+      ...createEvent(eventType, text, elapsedSeconds, score, storedScorerName),
+      ...(correctionMode ? { corrected: true } : {}),
+    }
     const nextMatch: MatchRecord = {
       ...match,
       score,
-      events: [...match.events, createEvent(eventType, text, elapsedSeconds, score, storedScorerName)],
+      events: [...match.events, newEvent],
     }
 
     await persistMatch(nextMatch, 'Målet er registrert.')
@@ -455,6 +460,60 @@ export function MatchPage() {
         </Grid>
       )}
 
+      {canManage && isFinished && (
+        <Card>
+          <CardContent>
+            <Stack spacing={2}>
+              {!correctionMode ? (
+                <Button
+                  variant="outlined"
+                  color="warning"
+                  startIcon={<EditRoundedIcon />}
+                  onClick={() => setCorrectionMode(true)}
+                >
+                  Korriger resultat
+                </Button>
+              ) : (
+                <>
+                  <Alert severity="warning">Korrigeringsmodus er aktiv. Registrer manglende mål nedenfor.</Alert>
+                  <Grid container spacing={2}>
+                    <Grid size={{ xs: 12, md: 6 }}>
+                      <Button
+                        variant="contained"
+                        color="success"
+                        fullWidth
+                        size="large"
+                        onClick={() => team?.requireScorerModal !== false ? setScorerModalOpen(true) : void registerGoal(ourSide, '')}
+                      >
+                        Mål {ourTeamName}
+                      </Button>
+                    </Grid>
+                    <Grid size={{ xs: 12, md: 6 }}>
+                      <Button
+                        variant="contained"
+                        color="error"
+                        fullWidth
+                        size="large"
+                        onClick={() => void registerGoal(opponentSide, 'Ukjent')}
+                      >
+                        Mål {opponentName}
+                      </Button>
+                    </Grid>
+                  </Grid>
+                  <Button
+                    variant="outlined"
+                    color="inherit"
+                    onClick={() => setCorrectionMode(false)}
+                  >
+                    Avslutt korrigering
+                  </Button>
+                </>
+              )}
+            </Stack>
+          </CardContent>
+        </Card>
+      )}
+
       {canManage && (isFirstHalf || isHalfTime || match.clock.status === MatchStatus.SECOND_HALF) && (
         <Card>
           <CardContent>
@@ -496,19 +555,24 @@ export function MatchPage() {
                     [MatchEventType.INFO]: <ChatBubbleOutlineRoundedIcon color="action" />,
                   }[event.type]
                   return (
-                    <ListItem key={event.id} divider disableGutters sx={{ pr: canManage && (isGoal || isInfo) && !isFinished ? 6 : 0 }}>
+                    <ListItem key={event.id} divider disableGutters sx={{ pr: canManage && (isGoal || isInfo) && (!isFinished || correctionMode) ? 6 : 0 }}>
                       <ListItemIcon sx={{ minWidth: 40 }}>{eventIcon}</ListItemIcon>
                       <ListItemText
                         primary={
-                          team?.showScorerInEvents === false &&
-                          event.type === (ourSide === 'home' ? MatchEventType.GOAL_HOME : MatchEventType.GOAL_AWAY) &&
-                          event.scoreAfter
-                            ? `${ourTeamName} scoret 🎉. Stillingen er nå ${event.scoreAfter.home} - ${event.scoreAfter.away}.`
-                            : event.text
+                          <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+                            <span>
+                              {team?.showScorerInEvents === false &&
+                              event.type === (ourSide === 'home' ? MatchEventType.GOAL_HOME : MatchEventType.GOAL_AWAY) &&
+                              event.scoreAfter
+                                ? `${ourTeamName} scoret 🎉. Stillingen er nå ${event.scoreAfter.home} - ${event.scoreAfter.away}.`
+                                : event.text}
+                            </span>
+                            {event.corrected && <Chip label="Korrigert" size="small" color="warning" variant="outlined" />}
+                          </Stack>
                         }
                         secondary={`${formatMatchTime(event.matchSecond)} · ${new Date(event.createdAt).toLocaleTimeString('nb-NO')}`}
                       />
-                      {canManage && (isGoal || isInfo) && !isFinished && (
+                      {canManage && (isGoal || isInfo) && (!isFinished || correctionMode) && (
                         <ListItemSecondaryAction>
                           <Tooltip title={isGoal ? 'Fjern målhendelse' : 'Fjern hendelse'}>
                             <IconButton

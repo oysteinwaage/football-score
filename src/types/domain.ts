@@ -49,6 +49,7 @@ export interface MatchEvent {
   matchSecond: number
   scoreAfter?: MatchScore
   scorerName?: string
+  corrected?: boolean
 }
 
 export interface GoalScorer {

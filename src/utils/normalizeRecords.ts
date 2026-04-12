@@ -63,6 +63,7 @@ function toMatchEvents(value: unknown): MatchEvent[] {
         matchSecond: typeof candidate.matchSecond === 'number' ? candidate.matchSecond : 0,
         scoreAfter: candidate.scoreAfter ? toMatchScore(candidate.scoreAfter) : undefined,
         scorerName: typeof candidate.scorerName === 'string' ? candidate.scorerName : undefined,
+        corrected: candidate.corrected === true ? true : undefined,
       },
     ]
   })
