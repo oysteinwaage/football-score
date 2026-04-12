@@ -129,7 +129,7 @@ export function AdminPage() {
                           onChange={() => void updateTeamShowScorerInEvents(team.id, team.showScorerInEvents === false)}
                         />
                       }
-                      label="Vis målscorer"
+                      label="Vis målscorer (alle)"
                       labelPlacement="start"
                     />
                     <FormControlLabel
