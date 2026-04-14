@@ -52,7 +52,7 @@ export function StatsPage() {
 
   const canView = profile?.roles.some((r) => r === UserRole.ADMIN || r === UserRole.STATS)
   if (!canView) {
-    return <Alert severity="error">Du har ikke tilgang til denne siden.</Alert>
+    return <Alert severity="error">Du har ikke tilgang til denne siden bror.</Alert>
   }
 
   const accessibleTeams = allTeams.filter((t) => profile?.roles.includes(UserRole.ADMIN) || profile?.teamIds.includes(t.id))
