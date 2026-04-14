@@ -104,6 +104,13 @@ export async function updateTeamRoster(teamId: string, playerNames: string[], co
   })
 }
 
+export async function updateTeamHalfDuration(teamId: string, halfDurationMinutes: number): Promise<void> {
+  await update(ref(requireDatabase(), `teams/${teamId}`), {
+    halfDurationMinutes,
+    updatedAt: new Date().toISOString(),
+  })
+}
+
 export async function updateTeamRequireScorerModal(teamId: string, requireScorerModal: boolean): Promise<void> {
   await update(ref(requireDatabase(), `teams/${teamId}`), {
     requireScorerModal,

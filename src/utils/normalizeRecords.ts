@@ -114,6 +114,7 @@ export function normalizeTeamRecord(value: unknown, id: string): TeamRecord {
     songUrl: typeof source.songUrl === 'string' ? source.songUrl : undefined,
     songTitle: typeof source.songTitle === 'string' ? source.songTitle : undefined,
     retired: source.retired === true,
+    halfDurationMinutes: typeof source.halfDurationMinutes === 'number' ? source.halfDurationMinutes : undefined,
     requireScorerModal: source.requireScorerModal !== false,
     showScorerInEvents: source.showScorerInEvents !== false,
     showScorerInEventsForCoach: source.showScorerInEventsForCoach === true,

@@ -64,6 +64,8 @@ export function MatchPage() {
   const { profile } = useAuth()
   const { data: match, loading, error } = useDocument<MatchRecord>(matchId ? `matches/${matchId}` : null)
   const { data: team } = useDocument<TeamRecord>(match ? `teams/${match.teamId}` : null)
+  const halfDuration = (team?.halfDurationMinutes ?? 30) * 60
+  const fullDuration = halfDuration * 2
   const [clockSeconds, setClockSeconds] = useState(0)
   const [scorerModalOpen, setScorerModalOpen] = useState(false)
   const [infoNote, setInfoNote] = useState('')
@@ -166,10 +168,10 @@ export function MatchPage() {
       ...match,
       clock: {
         status: MatchStatus.SECOND_HALF,
-        elapsedSeconds: 25 * 60,
+        elapsedSeconds: halfDuration,
         startedAt: new Date().toISOString(),
       },
-      events: [...match.events, createEvent(MatchEventType.SECOND_HALF_STARTED, '2. omgang startet', 25 * 60)],
+      events: [...match.events, createEvent(MatchEventType.SECOND_HALF_STARTED, '2. omgang startet', halfDuration)],
     }
 
     await persistMatch(nextMatch, 'Andre omgang er startet.')
@@ -185,11 +187,11 @@ export function MatchPage() {
     }
     const goalScorers: GoalScorer[] = Object.entries(scorerCounts).map(([name, goals]) => ({ name, goals }))
 
-    const matchEndedEvent = createEvent(MatchEventType.MATCH_ENDED, 'Kampen avsluttet', 50 * 60, match.score)
+    const matchEndedEvent = createEvent(MatchEventType.MATCH_ENDED, 'Kampen avsluttet', fullDuration, match.score)
     const endEvents: MatchEvent[] = [matchEndedEvent]
     if (endMatchNote.trim()) {
       endEvents.push({
-        ...createEvent(MatchEventType.INFO, endMatchNote.trim(), 50 * 60),
+        ...createEvent(MatchEventType.INFO, endMatchNote.trim(), fullDuration),
         createdAt: new Date(new Date(matchEndedEvent.createdAt).getTime() + 1).toISOString(),
       })
     }
@@ -198,7 +200,7 @@ export function MatchPage() {
       ...match,
       clock: {
         status: MatchStatus.FINISHED,
-        elapsedSeconds: 50 * 60,
+        elapsedSeconds: fullDuration,
         startedAt: null,
       },
       events: [...match.events, ...endEvents],
@@ -311,8 +313,8 @@ export function MatchPage() {
   const isHalfTime = match.clock.status === MatchStatus.HALF_TIME
   const isFinished = match.clock.status === MatchStatus.FINISHED
   const isOvertime =
-    ((isFirstHalf || isHalfTime) && clockSeconds > 25 * 60) ||
-    clockSeconds > 50 * 60
+    ((isFirstHalf || isHalfTime) && clockSeconds > halfDuration) ||
+    clockSeconds > fullDuration
 
   return (
     <Stack spacing={3}>

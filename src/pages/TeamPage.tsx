@@ -32,7 +32,7 @@ import { useAuth } from '../context/AuthContext'
 import { useCollection, useDocument } from '../hooks/useRealtimeDatabase'
 import { fetchFotballCalendar } from '../services/fotballCalendar'
 import { createMatch, deleteMatch, importFixtures, updateMatch } from '../services/matchService'
-import { deleteTeam, retireTeam, updateTeamName, updateTeamRoster, updateTeamSong } from '../services/teamService'
+import { deleteTeam, retireTeam, updateTeamHalfDuration, updateTeamName, updateTeamRoster, updateTeamSong } from '../services/teamService'
 import { MatchRecord, MatchStatus, TeamRecord, UserRole } from '../types/domain'
 import { getMatchOutcomeBackground, getMatchOutcomeForTeam } from '../utils/matchCardColors'
 
@@ -60,6 +60,9 @@ export function TeamPage() {
   const [teamDeleteDialogOpen, setTeamDeleteDialogOpen] = useState(false)
   const [deletingTeam, setDeletingTeam] = useState(false)
   const [retiringTeam, setRetiringTeam] = useState(false)
+  const [editingHalfDuration, setEditingHalfDuration] = useState(false)
+  const [halfDurationValue, setHalfDurationValue] = useState('')
+  const [halfDurationSaving, setHalfDurationSaving] = useState(false)
 
   const canManage = Boolean(profile?.roles.some((role) => role === UserRole.ADMIN || role === UserRole.KAMPLEDER || role === UserRole.TRENER))
   const canEditRoster = Boolean(profile?.roles.some((role) => role === UserRole.ADMIN || role === UserRole.TRENER))
@@ -194,6 +197,25 @@ export function TeamPage() {
       setErrorMessage(error instanceof Error ? error.message : 'Kunne ikke pensjonere laget.')
     } finally {
       setRetiringTeam(false)
+    }
+  }
+
+  const handleSaveHalfDuration = async () => {
+    const parsed = parseInt(halfDurationValue, 10)
+    if (Number.isNaN(parsed) || parsed < 1) {
+      return
+    }
+    setHalfDurationSaving(true)
+    setErrorMessage(null)
+    setStatusMessage(null)
+    try {
+      await updateTeamHalfDuration(teamId, parsed)
+      setEditingHalfDuration(false)
+      setStatusMessage('Omgangslengde lagret.')
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Kunne ikke lagre omgangslengden.')
+    } finally {
+      setHalfDurationSaving(false)
     }
   }
 
@@ -424,6 +446,45 @@ export function TeamPage() {
                   </Button>
                 )}
               </Stack>
+            </Stack>
+          </CardContent>
+        </Card>
+      )}
+
+      {isAdmin && (
+        <Card>
+          <CardContent>
+            <Stack spacing={1.5}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Omgangslengde</Typography>
+              {editingHalfDuration ? (
+                <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                  <TextField
+                    label="Minutter per omgang"
+                    type="number"
+                    value={halfDurationValue}
+                    onChange={(e) => setHalfDurationValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') void handleSaveHalfDuration()
+                      if (e.key === 'Escape') setEditingHalfDuration(false)
+                    }}
+                    disabled={halfDurationSaving}
+                    size="small"
+                    autoFocus
+                    slotProps={{ htmlInput: { min: 1, max: 90 } }}
+                  />
+                  <Button onClick={() => void handleSaveHalfDuration()} disabled={halfDurationSaving}>Lagre</Button>
+                  <Button onClick={() => setEditingHalfDuration(false)} disabled={halfDurationSaving}>Avbryt</Button>
+                </Stack>
+              ) : (
+                <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                  <Typography>{team.halfDurationMinutes ?? 30} minutter per omgang</Typography>
+                  {!team.retired && (
+                    <IconButton size="small" onClick={() => { setHalfDurationValue(String(team.halfDurationMinutes ?? 30)); setEditingHalfDuration(true) }}>
+                      <EditRoundedIcon fontSize="small" />
+                    </IconButton>
+                  )}
+                </Stack>
+              )}
             </Stack>
           </CardContent>
         </Card>
