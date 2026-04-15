@@ -1,4 +1,4 @@
-import { ref, remove, set, update } from 'firebase/database'
+import { increment, ref, remove, set, update } from 'firebase/database'
 import { User } from 'firebase/auth'
 
 import { database, firebaseConfigError } from '../firebase/config'
@@ -38,6 +38,13 @@ export async function updateUserAccess(
 ): Promise<void> {
   await update(ref(requireDatabase(), `users/${userId}`), {
     ...updates,
+    updatedAt: new Date().toISOString(),
+  })
+}
+
+export async function incrementUserSongPlay(userId: string, teamId: string): Promise<void> {
+  await update(ref(requireDatabase(), `users/${userId}`), {
+    [`songPlays/${teamId}`]: increment(1),
     updatedAt: new Date().toISOString(),
   })
 }

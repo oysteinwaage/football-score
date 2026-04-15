@@ -1,6 +1,7 @@
 import BarChartRoundedIcon from '@mui/icons-material/BarChartRounded'
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded'
 import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded'
+import MusicNoteRoundedIcon from '@mui/icons-material/MusicNoteRounded'
 import SportsRoundedIcon from '@mui/icons-material/SportsRounded'
 import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded'
 import {
@@ -26,7 +27,7 @@ import { useMemo, useState } from 'react'
 
 import { useAuth } from '../context/AuthContext'
 import { useCollection } from '../hooks/useRealtimeDatabase'
-import { MatchRecord, MatchStatus, TeamRecord, TeamType, UserRole } from '../types/domain'
+import { MatchRecord, MatchStatus, TeamRecord, TeamType, UserProfile, UserRole } from '../types/domain'
 
 function StatCard({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
   return (
@@ -48,6 +49,7 @@ export function StatsPage() {
   const { profile } = useAuth()
   const { data: allTeams } = useCollection<TeamRecord>('teams')
   const { data: allMatches } = useCollection<MatchRecord>('matches')
+  const { data: allUsers } = useCollection<UserProfile>('users')
   const [selectedTeamId, setSelectedTeamId] = useState<string>('')
 
   const canView = profile?.roles.some((r) => r === UserRole.ADMIN || r === UserRole.STATS)
@@ -125,6 +127,18 @@ export function StatsPage() {
     }
   }, [finishedMatches, selectedTeam])
 
+  const songPlayUsers = useMemo(() => {
+    if (!selectedTeamId) return []
+    return allUsers
+      .filter((u) => (u.songPlays?.[selectedTeamId] ?? 0) > 0)
+      .map((u) => ({
+        id: u.id,
+        name: u.parentName || u.displayName || u.childName || 'Ukjent',
+        plays: u.songPlays![selectedTeamId],
+      }))
+      .sort((a, b) => b.plays - a.plays)
+  }, [allUsers, selectedTeamId])
+
   return (
     <Stack spacing={3}>
       <Typography variant="h4">Statistikk</Typography>
@@ -143,6 +157,42 @@ export function StatsPage() {
           ))}
         </Select>
       </FormControl>
+
+      {selectedTeam?.songUrl && (
+        <StatCard title={`Lagsangavspillinger – ${selectedTeam.songTitle || 'Lagssang'}`} icon={<MusicNoteRoundedIcon color="primary" />}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'baseline' }}>
+            <Typography variant="h3" color="primary.main">{selectedTeam.songPlayCount ?? 0}</Typography>
+            <Typography color="text.secondary">totale avspillinger</Typography>
+          </Stack>
+          {songPlayUsers.length === 0 ? (
+            <Typography color="text.secondary" variant="body2">Ingen brukeravspillinger registrert ennå.</Typography>
+          ) : (
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>#</TableCell>
+                  <TableCell>Bruker</TableCell>
+                  <TableCell align="right">Avspillinger</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {songPlayUsers.map((u, i) => (
+                  <TableRow key={u.id}>
+                    <TableCell>{i + 1}</TableCell>
+                    <TableCell>
+                      <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                        {i === 0 && <EmojiEventsRoundedIcon fontSize="small" color="warning" />}
+                        <span>{u.name}</span>
+                      </Stack>
+                    </TableCell>
+                    <TableCell align="right"><strong>{u.plays}</strong></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </StatCard>
+      )}
 
       {selectedTeamId && !stats && (
         <Alert severity="info">Ingen avsluttede kamper for dette laget ennå.</Alert>

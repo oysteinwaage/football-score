@@ -67,6 +67,7 @@ export interface UserProfile {
   roles: UserRole[]
   teamIds: string[]
   approved: boolean
+  songPlays?: Record<string, number>
   createdAt: string
   updatedAt: string
 }
@@ -81,6 +82,7 @@ export interface TeamRecord {
   matchIds: string[]
   songUrl?: string
   songTitle?: string
+  songPlayCount?: number
   retired?: boolean
   halfDurationMinutes?: number
   requireScorerModal?: boolean

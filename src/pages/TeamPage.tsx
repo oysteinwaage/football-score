@@ -32,7 +32,8 @@ import { useAuth } from '../context/AuthContext'
 import { useCollection, useDocument } from '../hooks/useRealtimeDatabase'
 import { fetchFotballCalendar } from '../services/fotballCalendar'
 import { createMatch, deleteMatch, importFixtures, updateMatch } from '../services/matchService'
-import { deleteTeam, retireTeam, updateTeamHalfDuration, updateTeamName, updateTeamRoster, updateTeamSong } from '../services/teamService'
+import { deleteTeam, incrementTeamSongPlayCount, retireTeam, updateTeamHalfDuration, updateTeamName, updateTeamRoster, updateTeamSong } from '../services/teamService'
+import { incrementUserSongPlay } from '../services/userService'
 import { MatchRecord, MatchStatus, TeamRecord, UserRole } from '../types/domain'
 import { getMatchOutcomeBackground, getMatchOutcomeForTeam } from '../utils/matchCardColors'
 
@@ -379,7 +380,18 @@ export function TeamPage() {
                 )}
               </Stack>
 
-              <Box component="audio" controls src={team.songUrl} sx={{ width: '100%' }} />
+              <Box
+                component="audio"
+                controls
+                src={team.songUrl}
+                sx={{ width: '100%' }}
+                onPlay={() => {
+                  void incrementTeamSongPlayCount(teamId)
+                  if (profile?.uid) {
+                    void incrementUserSongPlay(profile.uid, teamId)
+                  }
+                }}
+              />
             </Stack>
           </CardContent>
         </Card>

@@ -1,4 +1,4 @@
-import { get, push, ref, remove, set, update } from 'firebase/database'
+import { get, increment, push, ref, remove, set, update } from 'firebase/database'
 
 import { database, firebaseConfigError } from '../firebase/config'
 import { TeamRecord, TeamType, UserProfile, UserRole } from '../types/domain'
@@ -100,6 +100,13 @@ export async function updateTeamRoster(teamId: string, playerNames: string[], co
   await update(ref(requireDatabase(), `teams/${teamId}`), {
     playerNames,
     coachNames,
+    updatedAt: new Date().toISOString(),
+  })
+}
+
+export async function incrementTeamSongPlayCount(teamId: string): Promise<void> {
+  await update(ref(requireDatabase(), `teams/${teamId}`), {
+    songPlayCount: increment(1),
     updatedAt: new Date().toISOString(),
   })
 }

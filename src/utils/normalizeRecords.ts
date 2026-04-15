@@ -95,6 +95,9 @@ export function normalizeUserProfile(value: unknown, id: string): UserProfile {
     roles: roles.length > 0 ? roles : [UserRole.FORELDER],
     teamIds: toStringArray(source.teamIds),
     approved: typeof source.approved === 'boolean' ? source.approved : false,
+    songPlays: typeof source.songPlays === 'object' && source.songPlays !== null
+      ? Object.fromEntries(Object.entries(source.songPlays).filter(([, v]) => typeof v === 'number') as [string, number][])
+      : undefined,
     createdAt: typeof source.createdAt === 'string' ? source.createdAt : new Date(0).toISOString(),
     updatedAt: typeof source.updatedAt === 'string' ? source.updatedAt : new Date(0).toISOString(),
   }
@@ -113,6 +116,7 @@ export function normalizeTeamRecord(value: unknown, id: string): TeamRecord {
     matchIds: toStringArray(source.matchIds),
     songUrl: typeof source.songUrl === 'string' ? source.songUrl : undefined,
     songTitle: typeof source.songTitle === 'string' ? source.songTitle : undefined,
+    songPlayCount: typeof source.songPlayCount === 'number' ? source.songPlayCount : undefined,
     retired: source.retired === true,
     halfDurationMinutes: typeof source.halfDurationMinutes === 'number' ? source.halfDurationMinutes : undefined,
     requireScorerModal: source.requireScorerModal !== false,
