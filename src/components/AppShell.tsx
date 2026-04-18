@@ -4,17 +4,24 @@ import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSettingsRounded'
 import ArchiveRoundedIcon from '@mui/icons-material/ArchiveRounded'
 import BarChartRoundedIcon from '@mui/icons-material/BarChartRounded'
+import CheckRoundedIcon from '@mui/icons-material/CheckRounded'
+import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded'
 import ExpandLessRoundedIcon from '@mui/icons-material/ExpandLessRounded'
 import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded'
 import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded'
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded'
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded'
+import ShareRoundedIcon from '@mui/icons-material/ShareRounded'
 import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded'
 import {
   AppBar,
   Avatar,
   Box,
+  Button,
   Collapse,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   Divider,
   Drawer,
   IconButton,
@@ -28,6 +35,7 @@ import {
   useMediaQuery,
 } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
+import { QRCodeSVG } from 'qrcode.react'
 import { ReactNode, useMemo, useState } from 'react'
 import { Link as RouterLink, useLocation } from 'react-router-dom'
 
@@ -42,6 +50,17 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [lagOpen, setLagOpen] = useState(false)
   const [lagCupOpen, setLagCupOpen] = useState(false)
   const [lagTestOpen, setLagTestOpen] = useState(false)
+  const [shareModalOpen, setShareModalOpen] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  const APP_URL = 'https://football-score-omega.vercel.app/'
+
+  const handleCopy = () => {
+    void navigator.clipboard.writeText(APP_URL).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
 
   const location = useLocation()
   const theme = useTheme()
@@ -282,6 +301,12 @@ export function AppShell({ children }: { children: ReactNode }) {
             <ListItemText primary="Min side" />
           </ListItemButton>
         )}
+        <ListItemButton onClick={() => { setShareModalOpen(true); setMobileOpen(false) }} sx={{ borderRadius: 3, mb: 0.5 }}>
+          <ListItemIcon>
+            <ShareRoundedIcon />
+          </ListItemIcon>
+          <ListItemText primary="Del app'en" />
+        </ListItemButton>
         <ListItemButton onClick={() => void signOutUser()} sx={{ borderRadius: 3 }}>
           <ListItemIcon>
             <LogoutRoundedIcon />
@@ -294,6 +319,26 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
+      <Dialog open={shareModalOpen} onClose={() => setShareModalOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Del app'en</DialogTitle>
+        <DialogContent>
+          <Stack spacing={3} sx={{ alignItems: 'center', py: 1 }}>
+            <QRCodeSVG value={APP_URL} size={220} />
+            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
+              Scan QR-koden for å åpne appen
+            </Typography>
+            <Button
+              variant="outlined"
+              fullWidth
+              startIcon={copied ? <CheckRoundedIcon /> : <ContentCopyRoundedIcon />}
+              onClick={handleCopy}
+              color={copied ? 'success' : 'primary'}
+            >
+              {copied ? 'Lenke kopiert!' : 'Kopier lenke'}
+            </Button>
+          </Stack>
+        </DialogContent>
+      </Dialog>
       <AppBar
         position="fixed"
         color="inherit"
