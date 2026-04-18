@@ -112,6 +112,16 @@ export interface MatchRecord {
   importedFromUrl?: string
 }
 
+export interface SongRecord {
+  id: string
+  title: string
+  url: string
+  playCount?: number
+  userPlays?: Record<string, number>
+  addedBy?: string
+  createdAt: string
+}
+
 export interface ImportedFixture {
   externalSourceId: string
   homeTeam: string

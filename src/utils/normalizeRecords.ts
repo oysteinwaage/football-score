@@ -8,6 +8,7 @@ import {
   type MatchEvent,
   type MatchRecord,
   type MatchScore,
+  type SongRecord,
   type TeamRecord,
   type UserProfile,
 } from '../types/domain'
@@ -151,6 +152,21 @@ export function normalizeMatchRecord(value: unknown, id: string): MatchRecord {
   }
 }
 
+export function normalizeSongRecord(value: unknown, id: string): SongRecord {
+  const source = typeof value === 'object' && value !== null ? (value as Partial<SongRecord>) : {}
+  return {
+    id,
+    title: typeof source.title === 'string' ? source.title : '',
+    url: typeof source.url === 'string' ? source.url : '',
+    playCount: typeof source.playCount === 'number' ? source.playCount : undefined,
+    userPlays: typeof source.userPlays === 'object' && source.userPlays !== null
+      ? Object.fromEntries(Object.entries(source.userPlays).filter(([, v]) => typeof v === 'number') as [string, number][])
+      : undefined,
+    addedBy: typeof source.addedBy === 'string' ? source.addedBy : undefined,
+    createdAt: typeof source.createdAt === 'string' ? source.createdAt : new Date(0).toISOString(),
+  }
+}
+
 export function normalizeByPath<T>(path: string, id: string, value: unknown): T & { id: string } {
   if (path === 'users' || path.startsWith('users/')) {
     return normalizeUserProfile(value, id) as unknown as T & { id: string }
@@ -162,6 +178,10 @@ export function normalizeByPath<T>(path: string, id: string, value: unknown): T 
 
   if (path === 'matches' || path.startsWith('matches/')) {
     return normalizeMatchRecord(value, id) as unknown as T & { id: string }
+  }
+
+  if (path === 'songs' || path.startsWith('songs/')) {
+    return normalizeSongRecord(value, id) as unknown as T & { id: string }
   }
 
   return { id, ...(value as object) } as T & { id: string }

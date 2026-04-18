@@ -12,6 +12,7 @@ import { MatchPage } from './pages/MatchPage'
 import { PendingApprovalPage } from './pages/PendingApprovalPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { RetiredTeamsPage } from './pages/RetiredTeamsPage'
+import { SangerPage } from './pages/SangerPage'
 import { StatsPage } from './pages/StatsPage'
 import { TeamPage } from './pages/TeamPage'
 import { WelcomePage } from './pages/WelcomePage'
@@ -125,6 +126,7 @@ export default function App() {
         <Route path="/matches/:matchId" element={<MatchPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/retired-teams" element={<RetiredTeamsPage />} />
+        <Route path="/sanger" element={<SangerPage />} />
         <Route path="/stats" element={<StatsPage />} />
         <Route element={<AdminRoute />}>
           <Route path="/admin" element={<AdminPage />} />

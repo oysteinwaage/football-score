@@ -11,6 +11,7 @@ import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded'
 import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded'
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded'
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded'
+import MusicNoteRoundedIcon from '@mui/icons-material/MusicNoteRounded'
 import ShareRoundedIcon from '@mui/icons-material/ShareRounded'
 import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded'
 import {
@@ -73,7 +74,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       return []
     }
 
-    return [{ label: 'Oversikt', icon: <HomeRoundedIcon />, href: '/' }]
+    return [
+      { label: 'Oversikt', icon: <HomeRoundedIcon />, href: '/' },
+    ]
   }, [profile])
 
   const drawer = (
@@ -231,6 +234,18 @@ export function AppShell({ children }: { children: ReactNode }) {
       </List>
       <Divider />
       <Box sx={{ p: 2 }}>
+        {profile?.approved && profile.roles.includes(UserRole.TRENER) && (
+          <ListItemButton
+            component={RouterLink}
+            to="/sanger"
+            selected={location.pathname === '/sanger'}
+            onClick={() => setMobileOpen(false)}
+            sx={{ borderRadius: 3, mb: 0.5 }}
+          >
+            <ListItemIcon><MusicNoteRoundedIcon /></ListItemIcon>
+            <ListItemText primary="Sanger" />
+          </ListItemButton>
+        )}
         {profile?.approved && profile.roles.includes(UserRole.ADMIN) && (
           <ListItemButton
             component={RouterLink}
@@ -239,9 +254,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             onClick={() => setMobileOpen(false)}
             sx={{ borderRadius: 3, mb: 0.5 }}
           >
-            <ListItemIcon>
-              <AdminPanelSettingsRoundedIcon />
-            </ListItemIcon>
+            <ListItemIcon><AdminPanelSettingsRoundedIcon /></ListItemIcon>
             <ListItemText primary="Admin" />
           </ListItemButton>
         )}
@@ -253,9 +266,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             onClick={() => setMobileOpen(false)}
             sx={{ borderRadius: 3, mb: 0.5 }}
           >
-            <ListItemIcon>
-              <BarChartRoundedIcon />
-            </ListItemIcon>
+            <ListItemIcon><BarChartRoundedIcon /></ListItemIcon>
             <ListItemText primary="Statistikk" />
           </ListItemButton>
         )}
@@ -267,9 +278,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             onClick={() => setMobileOpen(false)}
             sx={{ borderRadius: 3, mb: 0.5 }}
           >
-            <ListItemIcon>
-              <ArchiveRoundedIcon />
-            </ListItemIcon>
+            <ListItemIcon><ArchiveRoundedIcon /></ListItemIcon>
             <ListItemText primary="Pensjonerte lag" />
           </ListItemButton>
         )}
@@ -281,12 +290,14 @@ export function AppShell({ children }: { children: ReactNode }) {
             onClick={() => setMobileOpen(false)}
             sx={{ borderRadius: 3, mb: 0.5 }}
           >
-            <ListItemIcon>
-              <AddRoundedIcon />
-            </ListItemIcon>
+            <ListItemIcon><AddRoundedIcon /></ListItemIcon>
             <ListItemText primary="Opprett lag" />
           </ListItemButton>
         )}
+        <ListItemButton onClick={() => { setShareModalOpen(true); setMobileOpen(false) }} sx={{ borderRadius: 3, mb: 0.5 }}>
+          <ListItemIcon><ShareRoundedIcon /></ListItemIcon>
+          <ListItemText primary="Del app'en" />
+        </ListItemButton>
         {profile?.approved && (
           <ListItemButton
             component={RouterLink}
@@ -295,22 +306,12 @@ export function AppShell({ children }: { children: ReactNode }) {
             onClick={() => setMobileOpen(false)}
             sx={{ borderRadius: 3, mb: 0.5 }}
           >
-            <ListItemIcon>
-              <AccountCircleRoundedIcon />
-            </ListItemIcon>
+            <ListItemIcon><AccountCircleRoundedIcon /></ListItemIcon>
             <ListItemText primary="Min side" />
           </ListItemButton>
         )}
-        <ListItemButton onClick={() => { setShareModalOpen(true); setMobileOpen(false) }} sx={{ borderRadius: 3, mb: 0.5 }}>
-          <ListItemIcon>
-            <ShareRoundedIcon />
-          </ListItemIcon>
-          <ListItemText primary="Del app'en" />
-        </ListItemButton>
         <ListItemButton onClick={() => void signOutUser()} sx={{ borderRadius: 3 }}>
-          <ListItemIcon>
-            <LogoutRoundedIcon />
-          </ListItemIcon>
+          <ListItemIcon><LogoutRoundedIcon /></ListItemIcon>
           <ListItemText primary="Logg ut" />
         </ListItemButton>
       </Box>
