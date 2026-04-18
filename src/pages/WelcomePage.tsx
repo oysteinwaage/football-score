@@ -81,7 +81,8 @@ export function WelcomePage() {
             (match) =>
               match.teamId === team.id &&
               match.clock.status === MatchStatus.SCHEDULED &&
-              new Date(match.startsAt).getTime() >= currentTime - 30 * 60 * 1000,
+              new Date(match.startsAt).getTime() >= currentTime - 60 * 60 * 1000 &&
+              !(match.events?.some((e) => e.type === MatchEventType.MATCH_STARTED) ?? false),
           )
           .sort((left, right) => left.startsAt.localeCompare(right.startsAt))[0] ?? null
 

@@ -202,7 +202,10 @@ export function AdminPage() {
                 >
                   <Stack direction="row" spacing={2} sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
                     <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { sm: 'center' }, flex: 1, minWidth: 0 }}>
-                      <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>{user.parentName}</Typography>
+                      <Stack direction="row" spacing={0.75} sx={{ alignItems: 'baseline' }}>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>{user.parentName}</Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>{user.childName}</Typography>
+                      </Stack>
                       <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: 'wrap' }}>
                         {user.roles.map((role) => (
                           <Chip key={role} label={role} size="small" color="primary" variant="outlined" />
