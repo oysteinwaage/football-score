@@ -14,7 +14,6 @@
     "@emotion/styled": "^11.14.1",
     "@mui/icons-material": "^9.0.0",
     "@mui/material": "^9.0.0",
-    "canvas-confetti": "^1.9.4",
     "firebase": "^12.11.0",
     "qrcode.react": "^4.2.0",
     "react": "^19.2.4",
