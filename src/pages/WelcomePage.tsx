@@ -60,9 +60,7 @@ export function WelcomePage() {
 
   const isAdmin = profile?.roles.includes(UserRole.ADMIN) ?? false
   const visibleTeams = profile
-    ? isAdmin
-      ? teams.filter((team) => !team.retired)
-      : teams.filter((team) => profile.teamIds.includes(team.id) && !team.retired)
+    ? teams.filter((team) => profile.teamIds.includes(team.id) && !team.retired)
     : []
   const visibleTeamIds = new Set(visibleTeams.map((team) => team.id))
   const activeMatches = matches
