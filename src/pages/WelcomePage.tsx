@@ -11,13 +11,13 @@ import {
   Typography,
 } from '@mui/material'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link as RouterLink } from 'react-router-dom'
 
 import { useAuth } from '../context/AuthContext'
 import { useCollection } from '../hooks/useRealtimeDatabase'
 import { deleteUserProfile, updateUserAccess } from '../services/userService'
-import { MatchRecord, MatchStatus, TeamRecord, UserProfile, UserRole } from '../types/domain'
+import { MatchEventType, MatchRecord, MatchStatus, TeamRecord, UserProfile, UserRole } from '../types/domain'
 import { getMatchOutcomeBackground, getMatchOutcomeForTeam } from '../utils/matchCardColors'
 import { formatMatchTime, getLiveElapsedSeconds } from '../utils/matchClock'
 
@@ -89,6 +89,19 @@ export function WelcomePage() {
     })
     .filter((entry): entry is { team: TeamRecord; match: MatchRecord } => entry !== null)
     .sort((left, right) => left.match.startsAt.localeCompare(right.match.startsAt))
+  const remainingMatchCountByTeam = useMemo(() => {
+    const countMap: Record<string, number> = {}
+    for (const team of visibleTeams) {
+      countMap[team.id] = matches.filter((match) => {
+        if (match.teamId !== team.id) return false
+        const pastGracePeriod = new Date(match.startsAt).getTime() + 2 * 60 * 60 * 1000 < currentTime
+        const hasMatchEndedEvent = match.events?.some((e) => e.type === MatchEventType.MATCH_ENDED) ?? false
+        return !pastGracePeriod && !hasMatchEndedEvent
+      }).length
+    }
+    return countMap
+  }, [matches, visibleTeams, currentTime])
+
   const pendingApprovalUser = isAdmin
     ? users
         .filter((user) => !user.approved)
@@ -285,7 +298,7 @@ export function WelcomePage() {
                     <CardContent>
                       <Typography variant="h6">{team.teamType === 'CUP' ? `${team.cupName ?? 'Cup'} - ${team.name}` : team.name}</Typography>
                       <Typography color="text.secondary">
-                        {team.playerNames.length} spillere · {team.coachNames.length} trenere · {team.matchIds.length} kamper
+                        {team.playerNames.length} spillere · {team.coachNames.length} trenere · {remainingMatchCountByTeam[team.id] ?? 0} gjenstående kamper
                       </Typography>
                     </CardContent>
                   </Card>

@@ -34,7 +34,7 @@ import { fetchFotballCalendar } from '../services/fotballCalendar'
 import { createMatch, deleteMatch, importFixtures, updateMatch } from '../services/matchService'
 import { deleteTeam, incrementTeamSongPlayCount, retireTeam, updateTeamHalfDuration, updateTeamName, updateTeamRoster, updateTeamSong } from '../services/teamService'
 import { incrementUserSongPlay } from '../services/userService'
-import { MatchRecord, MatchStatus, TeamRecord, UserRole } from '../types/domain'
+import { MatchEventType, MatchRecord, MatchStatus, TeamRecord, UserRole } from '../types/domain'
 import { getMatchOutcomeBackground, getMatchOutcomeForTeam } from '../utils/matchCardColors'
 
 export function TeamPage() {
@@ -74,6 +74,17 @@ export function TeamPage() {
     () => matches.filter((match) => match.teamId === teamId).sort((left, right) => left.startsAt.localeCompare(right.startsAt)),
     [matches, teamId],
   )
+
+  const isTrenerOrAdmin = canEditRoster
+  const visibleMatches = useMemo(() => {
+    if (isTrenerOrAdmin) return teamMatches
+    const now = Date.now()
+    return teamMatches.filter((match) => {
+      const pastGracePeriod = new Date(match.startsAt).getTime() + 2 * 60 * 60 * 1000 < now
+      const hasMatchEndedEvent = match.events?.some((e) => e.type === MatchEventType.MATCH_ENDED) ?? false
+      return !pastGracePeriod && !hasMatchEndedEvent
+    })
+  }, [teamMatches, isTrenerOrAdmin])
 
   if (loading) {
     return <Alert severity="info">Laster lag...</Alert>
@@ -549,11 +560,11 @@ export function TeamPage() {
       <Card>
         <CardContent>
           <Stack spacing={2}>
-            <Typography variant="h5">Kamper</Typography>
-            {teamMatches.length === 0 ? (
-              <Alert severity="info">Ingen kamper registrert ennå.</Alert>
+            <Typography variant="h5">{isTrenerOrAdmin ? 'Kamper' : 'Kommende kamper'}</Typography>
+            {visibleMatches.length === 0 ? (
+              <Alert severity="info">{isTrenerOrAdmin ? 'Ingen kamper registrert ennå.' : 'Ingen kommende kamper.'}</Alert>
             ) : (
-              teamMatches.map((match) => (
+              visibleMatches.map((match) => (
                 <Card
                   key={match.id}
                   variant="outlined"
