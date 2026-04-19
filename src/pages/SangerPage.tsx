@@ -1,5 +1,6 @@
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
+import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded'
 import MusicNoteRoundedIcon from '@mui/icons-material/MusicNoteRounded'
 import {
   Alert,
@@ -7,8 +8,16 @@ import {
   Button,
   Card,
   CardContent,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   IconButton,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
   TextField,
   Typography,
 } from '@mui/material'
@@ -19,16 +28,66 @@ import { useCollection } from '../hooks/useRealtimeDatabase'
 import { addSong, deleteSong, incrementSongPlayCount } from '../services/songService'
 import { incrementTeamSongPlayCount } from '../services/teamService'
 import { incrementUserSongPlay } from '../services/userService'
-import { SongRecord, TeamRecord, UserRole } from '../types/domain'
+import { SongRecord, TeamRecord, UserProfile, UserRole } from '../types/domain'
+
+type PlayCountModalData = {
+  title: string
+  totalPlayCount: number
+  entries: { id: string; name: string; plays: number }[]
+}
+
+function PlayCountModal({ data, onClose }: { data: PlayCountModalData; onClose: () => void }) {
+  return (
+    <Dialog open={true} onClose={onClose} fullWidth maxWidth="xs">
+      <DialogTitle>{data.title}</DialogTitle>
+      <DialogContent>
+        <Stack spacing={2} sx={{ pt: 0.5 }}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'baseline' }}>
+            <Typography variant="h3" color="primary.main">{data.totalPlayCount}</Typography>
+            <Typography color="text.secondary">totale avspillinger</Typography>
+          </Stack>
+          {data.entries.length === 0 ? (
+            <Typography color="text.secondary" variant="body2">Ingen brukeravspillinger registrert ennå.</Typography>
+          ) : (
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>#</TableCell>
+                  <TableCell>Bruker</TableCell>
+                  <TableCell align="right">Avspillinger</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {data.entries.map((entry, i) => (
+                  <TableRow key={entry.id}>
+                    <TableCell>{i + 1}</TableCell>
+                    <TableCell>
+                      <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                        {i === 0 && <EmojiEventsRoundedIcon fontSize="small" color="warning" />}
+                        <span>{entry.name}</span>
+                      </Stack>
+                    </TableCell>
+                    <TableCell align="right"><strong>{entry.plays}</strong></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </Stack>
+      </DialogContent>
+    </Dialog>
+  )
+}
 
 function SongPlayer({
-  title, url, playCount, onPlay, onDelete,
+  title, url, playCount, onPlay, onDelete, onPlayCountClick,
 }: {
   title: string
   url: string
   playCount?: number
   onPlay?: () => void
   onDelete?: () => void
+  onPlayCountClick?: () => void
 }) {
   return (
     <Card variant="outlined">
@@ -38,7 +97,12 @@ function SongPlayer({
             <MusicNoteRoundedIcon color="primary" fontSize="small" />
             <Typography variant="subtitle1" sx={{ fontWeight: 600, flex: 1 }}>{title}</Typography>
             {playCount !== undefined && (
-              <Typography variant="caption" color="text.secondary">
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                onClick={onPlayCountClick}
+                sx={onPlayCountClick ? { cursor: 'pointer' } : undefined}
+              >
                 {playCount} {playCount === 1 ? 'avspilling' : 'avspillinger'}
               </Typography>
             )}
@@ -55,7 +119,11 @@ function SongPlayer({
   )
 }
 
-function AddSongForm({ onAdd }: { onAdd: (title: string, url: string) => Promise<void> }) {
+function AddSongDialog({ open, onClose, onAdd }: {
+  open: boolean
+  onClose: () => void
+  onAdd: (title: string, url: string) => Promise<void>
+}) {
   const [title, setTitle] = useState('')
   const [url, setUrl] = useState('')
   const [saving, setSaving] = useState(false)
@@ -69,6 +137,7 @@ function AddSongForm({ onAdd }: { onAdd: (title: string, url: string) => Promise
       await onAdd(title, url)
       setTitle('')
       setUrl('')
+      onClose()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Kunne ikke legge til sang.')
     } finally {
@@ -76,10 +145,19 @@ function AddSongForm({ onAdd }: { onAdd: (title: string, url: string) => Promise
     }
   }
 
+  const handleClose = () => {
+    if (saving) return
+    setTitle('')
+    setUrl('')
+    setError(null)
+    onClose()
+  }
+
   return (
-    <Card variant="outlined">
-      <CardContent>
-        <Stack spacing={2}>
+    <Dialog open={open} onClose={handleClose} fullWidth maxWidth="xs">
+      <DialogTitle>Legg til sang</DialogTitle>
+      <DialogContent>
+        <Stack spacing={2} sx={{ pt: 1 }}>
           <TextField
             label="Tittel"
             value={title}
@@ -96,20 +174,20 @@ function AddSongForm({ onAdd }: { onAdd: (title: string, url: string) => Promise
             disabled={saving}
             size="small"
             fullWidth
+            placeholder="https://suno.com/song/... eller direkte .mp3-lenke"
           />
           {error && <Alert severity="error">{error}</Alert>}
           <Button
-            variant="outlined"
+            variant="contained"
             startIcon={<AddRoundedIcon />}
             onClick={() => void handleAdd()}
             disabled={saving || !title.trim() || !url.trim()}
-            sx={{ alignSelf: 'flex-start' }}
           >
             {saving ? 'Legger til...' : 'Legg til sang'}
           </Button>
         </Stack>
-      </CardContent>
-    </Card>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -117,6 +195,9 @@ export function SangerPage() {
   const { profile } = useAuth()
   const { data: teams } = useCollection<TeamRecord>('teams')
   const { data: songs } = useCollection<SongRecord>('songs')
+  const { data: users } = useCollection<UserProfile>('users')
+  const [addDialogOpen, setAddDialogOpen] = useState(false)
+  const [playCountModal, setPlayCountModal] = useState<PlayCountModalData | null>(null)
 
   const canEdit = Boolean(profile?.roles.some((r) => r === UserRole.ADMIN || r === UserRole.TRENER || r === UserRole.KAMPLEDER))
 
@@ -124,6 +205,33 @@ export function SangerPage() {
     .filter((t) => t.songUrl && !t.retired)
     .sort((a, b) => (b.songPlayCount ?? 0) - (a.songPlayCount ?? 0))
   const sortedSongs = [...songs].sort((a, b) => (b.playCount ?? 0) - (a.playCount ?? 0))
+
+  const openTeamSongModal = (team: TeamRecord) => {
+    const entries = users
+      .filter((u) => (u.songPlays?.[team.id] ?? 0) > 0)
+      .map((u) => ({
+        id: u.id,
+        name: u.parentName || u.displayName || u.childName || 'Ukjent',
+        plays: u.songPlays![team.id],
+      }))
+      .sort((a, b) => b.plays - a.plays)
+    setPlayCountModal({ title: team.songTitle || team.name, totalPlayCount: team.songPlayCount ?? 0, entries })
+  }
+
+  const openSongModal = (song: SongRecord) => {
+    const entries = Object.entries(song.userPlays ?? {})
+      .map(([userId, plays]) => {
+        const user = users.find((u) => u.id === userId || u.uid === userId)
+        return {
+          id: userId,
+          name: user ? (user.parentName || user.displayName || user.childName || 'Ukjent') : 'Ukjent',
+          plays,
+        }
+      })
+      .filter((e) => e.plays > 0)
+      .sort((a, b) => b.plays - a.plays)
+    setPlayCountModal({ title: song.title, totalPlayCount: song.playCount ?? 0, entries })
+  }
 
   return (
     <Stack spacing={4}>
@@ -144,6 +252,7 @@ export function SangerPage() {
                 void incrementTeamSongPlayCount(team.id)
                 if (profile?.uid) void incrementUserSongPlay(profile.uid, team.id)
               }}
+              onPlayCountClick={() => openTeamSongModal(team)}
             />
           ))
         )}
@@ -159,10 +268,29 @@ export function SangerPage() {
             playCount={song.playCount ?? 0}
             onPlay={() => void incrementSongPlayCount(song.id, profile?.uid)}
             onDelete={canEdit ? () => void deleteSong(song.id) : undefined}
+            onPlayCountClick={() => openSongModal(song)}
           />
         ))}
-        <AddSongForm onAdd={async (title, url) => { await addSong(title, url, profile?.uid) }} />
+        <Box>
+          <Button
+            variant="outlined"
+            startIcon={<AddRoundedIcon />}
+            onClick={() => setAddDialogOpen(true)}
+          >
+            Legg til sang
+          </Button>
+        </Box>
       </Stack>
+
+      <AddSongDialog
+        open={addDialogOpen}
+        onClose={() => setAddDialogOpen(false)}
+        onAdd={async (title, url) => { await addSong(title, url, profile?.uid) }}
+      />
+
+      {playCountModal && (
+        <PlayCountModal data={playCountModal} onClose={() => setPlayCountModal(null)} />
+      )}
     </Stack>
   )
 }
