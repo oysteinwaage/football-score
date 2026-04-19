@@ -271,7 +271,7 @@ export function SangerPage() {
             onPlayCountClick={() => openSongModal(song)}
           />
         ))}
-        <Box>
+        <Box sx={{ pb: 4 }}>
           <Button
             variant="outlined"
             startIcon={<AddRoundedIcon />}
