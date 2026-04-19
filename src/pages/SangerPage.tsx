@@ -119,8 +119,9 @@ function SongPlayer({
             src={url}
             sx={{ width: '100%' }}
             onPlay={(e) => {
-              onPlay?.()
-              onAudioStart?.(e.currentTarget as HTMLAudioElement)
+              const audio = e.currentTarget as HTMLAudioElement
+              if (audio.currentTime < 1) onPlay?.()
+              onAudioStart?.(audio)
             }}
           />
         </Stack>
