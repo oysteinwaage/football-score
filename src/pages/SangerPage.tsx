@@ -23,6 +23,8 @@ import {
 } from '@mui/material'
 import { useRef, useState } from 'react'
 
+import trulsFjes from '../assets/truls_fjes.png'
+
 import { useAuth } from '../context/AuthContext'
 import { useCollection } from '../hooks/useRealtimeDatabase'
 import { addSong, deleteSong, incrementSongPlayCount } from '../services/songService'
@@ -209,6 +211,8 @@ export function SangerPage() {
   const { data: users } = useCollection<UserProfile>('users')
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [playCountModal, setPlayCountModal] = useState<PlayCountModalData | null>(null)
+  const [spotifyVisible, setSpotifyVisible] = useState(false)
+  const [eggVisible, setEggVisible] = useState(true)
   const currentAudioRef = useRef<HTMLAudioElement | null>(null)
 
   const handleAudioStart = (el: HTMLAudioElement) => {
@@ -293,7 +297,7 @@ export function SangerPage() {
             onAudioStart={handleAudioStart}
           />
         ))}
-        <Box sx={{ pb: 4 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 4 }}>
           <Button
             variant="outlined"
             startIcon={<AddRoundedIcon />}
@@ -301,11 +305,18 @@ export function SangerPage() {
           >
             Legg til sang
           </Button>
+          {profile?.roles.includes(UserRole.TRENER) && eggVisible && (
+            <Box
+              component="img"
+              src={trulsFjes}
+              onClick={() => { setSpotifyVisible(true); setEggVisible(false) }}
+              sx={{ cursor: 'pointer', userSelect: 'none', width: 40, height: 40, objectFit: 'contain', flexShrink: 0, borderRadius: '50%' }}
+            />
+          )}
         </Box>
       </Stack>
 
-      {profile?.roles.includes(UserRole.TRENER) && <Stack spacing={2}>
-        <Typography variant="h5">Fra Spotify</Typography>
+      {profile?.roles.includes(UserRole.TRENER) && spotifyVisible && (
         <Card variant="outlined" sx={{ overflow: 'hidden', borderRadius: 3 }}>
           <Box
             component="iframe"
@@ -318,7 +329,7 @@ export function SangerPage() {
             sx={{ display: 'block', border: 'none' }}
           />
         </Card>
-      </Stack>}
+      )}
 
       <AddSongDialog
         open={addDialogOpen}
