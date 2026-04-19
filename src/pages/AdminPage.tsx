@@ -1,3 +1,4 @@
+import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded'
 import {
@@ -21,6 +22,7 @@ import {
   Typography,
 } from '@mui/material'
 import { useMemo, useState } from 'react'
+import { Link as RouterLink } from 'react-router-dom'
 
 import { useAuth } from '../context/AuthContext'
 import { useCollection } from '../hooks/useRealtimeDatabase'
@@ -185,6 +187,19 @@ export function AdminPage() {
             </Stack>
           </CardContent>
         </Collapse>
+      </Card>
+
+      <Card
+        component={RouterLink}
+        to="/create-team"
+        sx={{ textDecoration: 'none', color: 'inherit', display: 'block', '&:hover': { bgcolor: 'action.hover' } }}
+      >
+        <Box sx={{ px: 2, py: 1.5 }}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+            <AddRoundedIcon fontSize="small" color="primary" />
+            <Typography variant="h5">Opprett nytt lag</Typography>
+          </Stack>
+        </Box>
       </Card>
 
       <Stack spacing={2}>

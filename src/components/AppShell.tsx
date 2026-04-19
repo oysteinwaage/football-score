@@ -1,6 +1,5 @@
 import MenuIcon from '@mui/icons-material/Menu'
 import AccountCircleRoundedIcon from '@mui/icons-material/AccountCircleRounded'
-import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSettingsRounded'
 import ArchiveRoundedIcon from '@mui/icons-material/ArchiveRounded'
 import BarChartRoundedIcon from '@mui/icons-material/BarChartRounded'
@@ -280,18 +279,6 @@ export function AppShell({ children }: { children: ReactNode }) {
           >
             <ListItemIcon><ArchiveRoundedIcon /></ListItemIcon>
             <ListItemText primary="Pensjonerte lag" />
-          </ListItemButton>
-        )}
-        {profile?.approved && profile.roles.includes(UserRole.ADMIN) && (
-          <ListItemButton
-            component={RouterLink}
-            to="/create-team"
-            selected={location.pathname === '/create-team'}
-            onClick={() => setMobileOpen(false)}
-            sx={{ borderRadius: 3, mb: 0.5 }}
-          >
-            <ListItemIcon><AddRoundedIcon /></ListItemIcon>
-            <ListItemText primary="Opprett lag" />
           </ListItemButton>
         )}
         <ListItemButton onClick={() => { setShareModalOpen(true); setMobileOpen(false) }} sx={{ borderRadius: 3, mb: 0.5 }}>

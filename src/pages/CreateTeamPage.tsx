@@ -16,6 +16,7 @@ import {
   Typography,
 } from '@mui/material'
 import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 import { useAuth } from '../context/AuthContext'
 import { useCollection } from '../hooks/useRealtimeDatabase'
@@ -36,6 +37,7 @@ function firstName(name: string) {
 
 export function CreateTeamPage() {
   const { profile } = useAuth()
+  const navigate = useNavigate()
   const { data: users } = useCollection<UserProfile>('users')
   const [teamName, setTeamName] = useState('')
   const [teamType, setTeamType] = useState<TeamType>(TeamType.SERIE)
@@ -43,7 +45,6 @@ export function CreateTeamPage() {
   const [coachNames, setCoachNames] = useState('')
   const [playerNames, setPlayerNames] = useState('')
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set())
-  const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const sortedUsers = useMemo(
@@ -98,7 +99,6 @@ export function CreateTeamPage() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setErrorMessage(null)
-    setStatusMessage(null)
 
     try {
       const team = await createTeam({
@@ -118,13 +118,7 @@ export function CreateTeamPage() {
         }),
       )
 
-      setTeamName('')
-      setTeamType(TeamType.SERIE)
-      setCupName('')
-      setCoachNames('')
-      setPlayerNames('')
-      setSelectedUserIds(new Set())
-      setStatusMessage('Laget ble opprettet.')
+      navigate(`/teams/${team.id}`)
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Kunne ikke opprette laget.')
     }
@@ -133,7 +127,6 @@ export function CreateTeamPage() {
   return (
     <Stack spacing={3}>
       <Typography variant="h4">Opprett nytt lag</Typography>
-      {statusMessage && <Alert severity="success">{statusMessage}</Alert>}
       {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
       <Card sx={{ maxWidth: 560 }}>
         <CardContent>
