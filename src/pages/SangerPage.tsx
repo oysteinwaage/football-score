@@ -200,6 +200,7 @@ export function SangerPage() {
   const [playCountModal, setPlayCountModal] = useState<PlayCountModalData | null>(null)
 
   const canEdit = Boolean(profile?.roles.some((r) => r === UserRole.ADMIN || r === UserRole.TRENER || r === UserRole.KAMPLEDER))
+  const canViewStats = Boolean(profile?.roles.some((r) => r === UserRole.TRENER || r === UserRole.ADMIN))
 
   const teamsWithSong = teams
     .filter((t) => t.songUrl && !t.retired)
@@ -252,7 +253,7 @@ export function SangerPage() {
                 void incrementTeamSongPlayCount(team.id)
                 if (profile?.uid) void incrementUserSongPlay(profile.uid, team.id)
               }}
-              onPlayCountClick={() => openTeamSongModal(team)}
+              onPlayCountClick={canViewStats ? () => openTeamSongModal(team) : undefined}
             />
           ))
         )}
@@ -268,7 +269,7 @@ export function SangerPage() {
             playCount={song.playCount ?? 0}
             onPlay={() => void incrementSongPlayCount(song.id, profile?.uid)}
             onDelete={canEdit ? () => void deleteSong(song.id) : undefined}
-            onPlayCountClick={() => openSongModal(song)}
+            onPlayCountClick={canViewStats ? () => openSongModal(song) : undefined}
           />
         ))}
         <Box sx={{ pb: 4 }}>

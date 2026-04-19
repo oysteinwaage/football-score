@@ -233,7 +233,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </List>
       <Divider />
       <Box sx={{ p: 2 }}>
-        {profile?.approved && profile.roles.includes(UserRole.TRENER) && (
+        {profile?.approved && (
           <ListItemButton
             component={RouterLink}
             to="/sanger"
