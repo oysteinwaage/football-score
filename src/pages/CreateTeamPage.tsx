@@ -222,9 +222,9 @@ export function CreateTeamPage() {
                             {autoMatch && (
                               <Chip label="auto" size="small" color="success" variant="outlined" />
                             )}
-                            {user.roles.filter((r) => r !== UserRole.FORELDER).map((role) => (
-                              <Chip key={role} label={role} size="small" variant="outlined" />
-                            ))}
+                            {user.roles.includes(UserRole.TRENER) && (
+                              <Chip label={UserRole.TRENER} size="small" variant="outlined" />
+                            )}
                           </Stack>
                         </Box>
                       )
