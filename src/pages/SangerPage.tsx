@@ -304,6 +304,22 @@ export function SangerPage() {
         </Box>
       </Stack>
 
+      {profile?.roles.includes(UserRole.TRENER) && <Stack spacing={2}>
+        <Typography variant="h5">Fra Spotify</Typography>
+        <Card variant="outlined" sx={{ overflow: 'hidden', borderRadius: 3 }}>
+          <Box
+            component="iframe"
+            src="https://open.spotify.com/embed/track/0Ylc6W9EcUvRHaDgQ3VSli?utm_source=generator"
+            width="100%"
+            height={152}
+            frameBorder={0}
+            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+            loading="lazy"
+            sx={{ display: 'block', border: 'none' }}
+          />
+        </Card>
+      </Stack>}
+
       <AddSongDialog
         open={addDialogOpen}
         onClose={() => setAddDialogOpen(false)}
