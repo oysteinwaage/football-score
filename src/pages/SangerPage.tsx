@@ -309,7 +309,11 @@ export function SangerPage() {
             <Box
               component="img"
               src={trulsFjes}
-              onClick={() => { setSpotifyVisible(true); setEggVisible(false) }}
+              onClick={() => {
+                setSpotifyVisible(true)
+                setEggVisible(false)
+                setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }), 550)
+              }}
               sx={{ cursor: 'pointer', userSelect: 'none', width: 40, height: 40, objectFit: 'contain', flexShrink: 0, borderRadius: '50%' }}
             />
           )}
