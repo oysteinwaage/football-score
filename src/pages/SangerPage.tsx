@@ -21,7 +21,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 
 import { useAuth } from '../context/AuthContext'
 import { useCollection } from '../hooks/useRealtimeDatabase'
@@ -80,7 +80,7 @@ function PlayCountModal({ data, onClose }: { data: PlayCountModalData; onClose: 
 }
 
 function SongPlayer({
-  title, url, playCount, onPlay, onDelete, onPlayCountClick,
+  title, url, playCount, onPlay, onDelete, onPlayCountClick, onAudioStart,
 }: {
   title: string
   url: string
@@ -88,6 +88,7 @@ function SongPlayer({
   onPlay?: () => void
   onDelete?: () => void
   onPlayCountClick?: () => void
+  onAudioStart?: (el: HTMLAudioElement) => void
 }) {
   return (
     <Card variant="outlined">
@@ -112,7 +113,16 @@ function SongPlayer({
               </IconButton>
             )}
           </Stack>
-          <Box component="audio" controls src={url} sx={{ width: '100%' }} onPlay={onPlay} />
+          <Box
+            component="audio"
+            controls
+            src={url}
+            sx={{ width: '100%' }}
+            onPlay={(e) => {
+              onPlay?.()
+              onAudioStart?.(e.currentTarget as HTMLAudioElement)
+            }}
+          />
         </Stack>
       </CardContent>
     </Card>
@@ -198,6 +208,14 @@ export function SangerPage() {
   const { data: users } = useCollection<UserProfile>('users')
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [playCountModal, setPlayCountModal] = useState<PlayCountModalData | null>(null)
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null)
+
+  const handleAudioStart = (el: HTMLAudioElement) => {
+    if (currentAudioRef.current && currentAudioRef.current !== el) {
+      currentAudioRef.current.pause()
+    }
+    currentAudioRef.current = el
+  }
 
   const canEdit = Boolean(profile?.roles.some((r) => r === UserRole.ADMIN || r === UserRole.TRENER || r === UserRole.KAMPLEDER))
   const canViewStats = Boolean(profile?.roles.some((r) => r === UserRole.TRENER || r === UserRole.ADMIN))
@@ -254,6 +272,7 @@ export function SangerPage() {
                 if (profile?.uid) void incrementUserSongPlay(profile.uid, team.id)
               }}
               onPlayCountClick={canViewStats ? () => openTeamSongModal(team) : undefined}
+              onAudioStart={handleAudioStart}
             />
           ))
         )}
@@ -270,6 +289,7 @@ export function SangerPage() {
             onPlay={() => void incrementSongPlayCount(song.id, profile?.uid)}
             onDelete={canEdit ? () => void deleteSong(song.id) : undefined}
             onPlayCountClick={canViewStats ? () => openSongModal(song) : undefined}
+            onAudioStart={handleAudioStart}
           />
         ))}
         <Box sx={{ pb: 4 }}>
