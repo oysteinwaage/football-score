@@ -582,7 +582,7 @@ export function TeamPage() {
                       >
                         <Typography variant="h6">{match.homeTeam} - {match.awayTeam}</Typography>
                         <Typography color="text.secondary">
-                          {new Date(match.startsAt).toLocaleString('nb-NO')} · {match.location || 'Sted ikke satt'}
+                          {(([first, ...rest]) => first.toUpperCase() + rest.join(''))(new Date(match.startsAt).toLocaleString('nb-NO', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }))} · {match.location || 'Sted ikke satt'}
                         </Typography>
                         {match.clock.status !== MatchStatus.SCHEDULED && (
                           <Typography sx={{ mt: 1, fontWeight: 700 }}>

@@ -350,7 +350,11 @@ export function AppShell({ children }: { children: ReactNode }) {
             <Typography variant="h6">Live Score - VASK G2016</Typography>
             <Typography variant="body2" color="text.secondary">
               {profile?.approved
-                ? `${profile.parentName} (${profile.roles.map((r) => r.charAt(0).toUpperCase() + r.slice(1).toLowerCase()).join(', ')})`
+                ? (() => {
+                    const roles = profile.roles.filter((r) => r !== UserRole.FORELDER)
+                    const roleStr = roles.map((r) => r.charAt(0).toUpperCase() + r.slice(1).toLowerCase()).join(', ')
+                    return roleStr ? `${profile.parentName} (${roleStr})` : profile.parentName
+                  })()
                 : 'Registrering og godkjenning'}
             </Typography>
           </Box>
