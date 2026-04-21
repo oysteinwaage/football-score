@@ -2,16 +2,21 @@ import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded'
 import MusicNoteRoundedIcon from '@mui/icons-material/MusicNoteRounded'
+import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded'
 import {
   Alert,
   Box,
   Button,
   Card,
-  CardContent,
+  Collapse,
   Dialog,
+  DialogActions,
   DialogContent,
+  DialogContentText,
   DialogTitle,
+  Divider,
   IconButton,
+  Paper,
   Stack,
   Table,
   TableBody,
@@ -21,7 +26,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import trulsFjes from '../assets/truls_fjes.png'
 
@@ -37,6 +42,8 @@ type PlayCountModalData = {
   totalPlayCount: number
   entries: { id: string; name: string; plays: number }[]
 }
+
+type ActiveItem = { type: 'official' | 'other'; index: number } | null
 
 function PlayCountModal({ data, onClose }: { data: PlayCountModalData; onClose: () => void }) {
   return (
@@ -81,54 +88,122 @@ function PlayCountModal({ data, onClose }: { data: PlayCountModalData; onClose: 
   )
 }
 
-function SongPlayer({
-  title, url, playCount, onPlay, onDelete, onPlayCountClick, onAudioStart,
+function PlaylistRow({
+  title,
+  url,
+  playCount,
+  addedByName,
+  isActive,
+  onActivate,
+  onStarted,
+  onEnded,
+  onDelete,
+  onPlayCountClick,
 }: {
   title: string
   url: string
   playCount?: number
-  onPlay?: () => void
+  addedByName?: string
+  isActive: boolean
+  onActivate: () => void
+  onStarted?: () => void
+  onEnded?: () => void
   onDelete?: () => void
   onPlayCountClick?: () => void
-  onAudioStart?: (el: HTMLAudioElement) => void
 }) {
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const [audioPlaying, setAudioPlaying] = useState(false)
+
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio) return
+    if (isActive) {
+      void audio.play()
+    } else {
+      audio.pause()
+    }
+  }, [isActive])
+
+  const handlePlayPauseClick = () => {
+    if (!isActive) {
+      onActivate()
+      return
+    }
+    const audio = audioRef.current
+    if (!audio) return
+    if (audioPlaying) {
+      audio.pause()
+    } else {
+      void audio.play()
+    }
+  }
+
   return (
-    <Card variant="outlined">
-      <CardContent>
-        <Stack spacing={1.5}>
-          <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-            <MusicNoteRoundedIcon color="primary" fontSize="small" />
-            <Typography variant="subtitle1" sx={{ fontWeight: 600, flex: 1 }}>{title}</Typography>
-            {playCount !== undefined && (
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                onClick={onPlayCountClick}
-                sx={onPlayCountClick ? { cursor: 'pointer' } : undefined}
-              >
-                {playCount} {playCount === 1 ? 'avspilling' : 'avspillinger'}
-              </Typography>
-            )}
-            {onDelete && (
-              <IconButton size="small" color="error" onClick={onDelete} aria-label="Slett sang">
-                <DeleteOutlineRoundedIcon fontSize="small" />
-              </IconButton>
-            )}
-          </Stack>
+    <Box sx={isActive ? { bgcolor: 'action.hover' } : undefined}>
+      <Stack direction="row" sx={{ alignItems: 'center', px: 2, py: 1.5, gap: 1 }}>
+        {!isActive && (
+          <IconButton size="small" onClick={handlePlayPauseClick} color="primary" sx={{ flexShrink: 0 }}>
+            <PlayArrowRoundedIcon />
+          </IconButton>
+        )}
+        {isActive && (
+          <Box sx={{ flexShrink: 0, p: '5px', display: 'flex' }}>
+            <MusicNoteRoundedIcon fontSize="small" color="primary" />
+          </Box>
+        )}
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography
+            variant="body1"
+            sx={{ fontWeight: isActive ? 600 : 400, color: isActive ? 'primary.main' : 'text.primary' }}
+          >
+            {title}
+          </Typography>
+          {addedByName && (
+            <Typography variant="caption" color="text.secondary" noWrap>
+              {addedByName}
+            </Typography>
+          )}
+        </Box>
+        {playCount !== undefined && (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            onClick={onPlayCountClick}
+            sx={onPlayCountClick ? { cursor: 'pointer', userSelect: 'none' } : undefined}
+          >
+            {playCount} {playCount === 1 ? 'avspilling' : 'avspillinger'}
+          </Typography>
+        )}
+        {onDelete && (
+          <IconButton size="small" color="error" onClick={onDelete} aria-label="Slett sang">
+            <DeleteOutlineRoundedIcon fontSize="small" />
+          </IconButton>
+        )}
+      </Stack>
+      <Collapse in={isActive} unmountOnExit={false}>
+        <Box sx={{ px: 2, pb: 1.5 }}>
           <Box
             component="audio"
+            ref={audioRef}
             controls
             src={url}
+            preload="none"
             sx={{ width: '100%' }}
-            onPlay={(e) => {
-              const audio = e.currentTarget as HTMLAudioElement
-              if (audio.currentTime < 1) onPlay?.()
-              onAudioStart?.(audio)
+            onPlay={() => {
+              setAudioPlaying(true)
+              const audio = audioRef.current
+              if (audio && audio.currentTime < 1) onStarted?.()
+            }}
+            onPause={() => setAudioPlaying(false)}
+            onEnded={() => {
+              setAudioPlaying(false)
+              if (audioRef.current) audioRef.current.currentTime = 0
+              onEnded?.()
             }}
           />
-        </Stack>
-      </CardContent>
-    </Card>
+        </Box>
+      </Collapse>
+    </Box>
   )
 }
 
@@ -213,22 +288,40 @@ export function SangerPage() {
   const [playCountModal, setPlayCountModal] = useState<PlayCountModalData | null>(null)
   const [spotifyVisible, setSpotifyVisible] = useState(false)
   const [eggVisible, setEggVisible] = useState(true)
-  const currentAudioRef = useRef<HTMLAudioElement | null>(null)
-
-  const handleAudioStart = (el: HTMLAudioElement) => {
-    if (currentAudioRef.current && currentAudioRef.current !== el) {
-      currentAudioRef.current.pause()
-    }
-    currentAudioRef.current = el
-  }
+  const [activeItem, setActiveItem] = useState<ActiveItem>(null)
+  const [deleteConfirmSong, setDeleteConfirmSong] = useState<SongRecord | null>(null)
 
   const canEdit = Boolean(profile?.roles.some((r) => r === UserRole.ADMIN || r === UserRole.TRENER || r === UserRole.KAMPLEDER))
   const canViewStats = Boolean(profile?.roles.some((r) => r === UserRole.TRENER || r === UserRole.ADMIN))
 
+  const resolveUserName = (uid?: string) => {
+    if (!uid) return undefined
+    const u = users.find((u) => u.id === uid || u.uid === uid)
+    return u ? (u.parentName || u.displayName || u.childName || undefined) : undefined
+  }
+
   const teamsWithSong = teams
     .filter((t) => t.songUrl && !t.retired)
-    .sort((a, b) => (b.songPlayCount ?? 0) - (a.songPlayCount ?? 0))
-  const sortedSongs = [...songs].sort((a, b) => (b.playCount ?? 0) - (a.playCount ?? 0))
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+  const sortedSongs = [...songs].sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+
+  const playNext = (type: 'official' | 'other', index: number) => {
+    if (type === 'official') {
+      if (index < teamsWithSong.length - 1) {
+        setActiveItem({ type: 'official', index: index + 1 })
+      } else if (sortedSongs.length > 0) {
+        setActiveItem({ type: 'other', index: 0 })
+      } else {
+        setActiveItem(null)
+      }
+    } else {
+      if (index < sortedSongs.length - 1) {
+        setActiveItem({ type: 'other', index: index + 1 })
+      } else {
+        setActiveItem(null)
+      }
+    }
+  }
 
   const openTeamSongModal = (team: TeamRecord) => {
     const entries = users
@@ -262,41 +355,57 @@ export function SangerPage() {
       <Typography variant="h4">Sanger</Typography>
 
       <Stack spacing={2}>
-        <Typography variant="h5">Offisielle Lagsanger</Typography>
+        <Typography variant="h5">Offisielle Lagsanger ⚽️</Typography>
         {teamsWithSong.length === 0 ? (
           <Alert severity="info">Ingen lag har lagt til lagsang ennå.</Alert>
         ) : (
-          teamsWithSong.map((team) => (
-            <SongPlayer
-              key={team.id}
-              title={team.songTitle || team.name}
-              url={team.songUrl!}
-              playCount={team.songPlayCount ?? 0}
-              onPlay={() => {
-                void incrementTeamSongPlayCount(team.id)
-                if (profile?.uid) void incrementUserSongPlay(profile.uid, team.id)
-              }}
-              onPlayCountClick={canViewStats ? () => openTeamSongModal(team) : undefined}
-              onAudioStart={handleAudioStart}
-            />
-          ))
+          <Paper variant="outlined">
+            {teamsWithSong.map((team, index) => (
+              <Box key={team.id}>
+                {index > 0 && <Divider />}
+                <PlaylistRow
+                  title={team.songTitle || team.name}
+                  url={team.songUrl!}
+                  playCount={team.songPlayCount ?? 0}
+                  addedByName={resolveUserName(team.songAddedBy)}
+                  isActive={activeItem?.type === 'official' && activeItem?.index === index}
+                  onActivate={() => setActiveItem({ type: 'official', index })}
+                  onStarted={() => {
+                    void incrementTeamSongPlayCount(team.id)
+                    if (profile?.uid) void incrementUserSongPlay(profile.uid, team.id)
+                  }}
+                  onEnded={() => playNext('official', index)}
+                  onPlayCountClick={canViewStats ? () => openTeamSongModal(team) : undefined}
+                />
+              </Box>
+            ))}
+          </Paper>
         )}
       </Stack>
 
       <Stack spacing={2}>
-        <Typography variant="h5">Andre sanger</Typography>
-        {sortedSongs.map((song) => (
-          <SongPlayer
-            key={song.id}
-            title={song.title}
-            url={song.url}
-            playCount={song.playCount ?? 0}
-            onPlay={() => void incrementSongPlayCount(song.id, profile?.uid)}
-            onDelete={canEdit ? () => void deleteSong(song.id) : undefined}
-            onPlayCountClick={canViewStats ? () => openSongModal(song) : undefined}
-            onAudioStart={handleAudioStart}
-          />
-        ))}
+        <Typography variant="h5">Andre sanger 🎶</Typography>
+        {sortedSongs.length > 0 && (
+          <Paper variant="outlined">
+            {sortedSongs.map((song, index) => (
+              <Box key={song.id}>
+                {index > 0 && <Divider />}
+                <PlaylistRow
+                  title={song.title}
+                  url={song.url}
+                  playCount={song.playCount ?? 0}
+                  addedByName={resolveUserName(song.addedBy)}
+                  isActive={activeItem?.type === 'other' && activeItem?.index === index}
+                  onActivate={() => setActiveItem({ type: 'other', index })}
+                  onStarted={() => void incrementSongPlayCount(song.id, profile?.uid)}
+                  onEnded={() => playNext('other', index)}
+                  onDelete={canEdit ? () => setDeleteConfirmSong(song) : undefined}
+                  onPlayCountClick={canViewStats ? () => openSongModal(song) : undefined}
+                />
+              </Box>
+            ))}
+          </Paper>
+        )}
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 4 }}>
           <Button
             variant="outlined"
@@ -340,6 +449,27 @@ export function SangerPage() {
         onClose={() => setAddDialogOpen(false)}
         onAdd={async (title, url) => { await addSong(title, url, profile?.uid) }}
       />
+
+      <Dialog open={Boolean(deleteConfirmSong)} onClose={() => setDeleteConfirmSong(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Slett sang</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Er du sikker på at du vil slette «{deleteConfirmSong?.title}»?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteConfirmSong(null)}>Avbryt</Button>
+          <Button
+            color="error"
+            onClick={() => {
+              if (deleteConfirmSong) void deleteSong(deleteConfirmSong.id)
+              setDeleteConfirmSong(null)
+            }}
+          >
+            Slett
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {playCountModal && (
         <PlayCountModal data={playCountModal} onClose={() => setPlayCountModal(null)} />

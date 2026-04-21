@@ -128,7 +128,7 @@ export function TeamPage() {
     const trimmed = normalizeSongUrl(songValue.trim())
     setSongSaving(true)
     try {
-      await updateTeamSong(teamId, trimmed || null, songTitleValue.trim() || undefined)
+      await updateTeamSong(teamId, trimmed || null, songTitleValue.trim() || undefined, profile?.uid)
       setEditingSong(false)
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Kunne ikke lagre sanglenkен.')

@@ -83,6 +83,7 @@ export interface TeamRecord {
   songUrl?: string
   songTitle?: string
   songPlayCount?: number
+  songAddedBy?: string
   retired?: boolean
   halfDurationMinutes?: number
   requireScorerModal?: boolean
