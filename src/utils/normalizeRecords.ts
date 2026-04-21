@@ -123,6 +123,7 @@ export function normalizeTeamRecord(value: unknown, id: string): TeamRecord {
     requireScorerModal: source.requireScorerModal !== false,
     showScorerInEvents: source.showScorerInEvents !== false,
     showScorerInEventsForCoach: source.showScorerInEventsForCoach === true,
+    hideHistoricalMatches: source.hideHistoricalMatches === true,
     createdAt: typeof source.createdAt === 'string' ? source.createdAt : new Date(0).toISOString(),
     updatedAt: typeof source.updatedAt === 'string' ? source.updatedAt : new Date(0).toISOString(),
   }

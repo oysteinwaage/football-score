@@ -26,7 +26,7 @@ import { Link as RouterLink } from 'react-router-dom'
 
 import { useAuth } from '../context/AuthContext'
 import { useCollection } from '../hooks/useRealtimeDatabase'
-import { updateTeamRequireScorerModal, updateTeamShowScorerInEvents, updateTeamShowScorerInEventsForCoach } from '../services/teamService'
+import { updateTeamHideHistoricalMatches, updateTeamRequireScorerModal, updateTeamShowScorerInEvents, updateTeamShowScorerInEventsForCoach } from '../services/teamService'
 import { deleteUserProfile, updateUserAccess } from '../services/userService'
 import { TeamRecord, UserProfile, UserRole } from '../types/domain'
 
@@ -177,6 +177,16 @@ export function AdminPage() {
                           />
                         }
                         label="Vis målscorer (trenere)"
+                        labelPlacement="start"
+                      />
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={team.hideHistoricalMatches === true}
+                            onChange={() => void updateTeamHideHistoricalMatches(team.id, team.hideHistoricalMatches !== true)}
+                          />
+                        }
+                        label="Skjul historiske kamper"
                         labelPlacement="start"
                       />
                     </Stack>

@@ -77,14 +77,14 @@ export function TeamPage() {
 
   const isTrenerOrAdmin = canEditRoster
   const visibleMatches = useMemo(() => {
-    if (isTrenerOrAdmin) return teamMatches
+    if (isTrenerOrAdmin || !team?.hideHistoricalMatches) return teamMatches
     const now = Date.now()
     return teamMatches.filter((match) => {
       const pastGracePeriod = new Date(match.startsAt).getTime() + 2 * 60 * 60 * 1000 < now
       const hasMatchEndedEvent = match.events?.some((e) => e.type === MatchEventType.MATCH_ENDED) ?? false
       return !pastGracePeriod && !hasMatchEndedEvent
     })
-  }, [teamMatches, isTrenerOrAdmin])
+  }, [teamMatches, isTrenerOrAdmin, team?.hideHistoricalMatches])
 
   if (loading) {
     return <Alert severity="info">Laster lag...</Alert>

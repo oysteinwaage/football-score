@@ -139,6 +139,13 @@ export async function updateTeamShowScorerInEventsForCoach(teamId: string, showS
   })
 }
 
+export async function updateTeamHideHistoricalMatches(teamId: string, hideHistoricalMatches: boolean): Promise<void> {
+  await update(ref(requireDatabase(), `teams/${teamId}`), {
+    hideHistoricalMatches,
+    updatedAt: new Date().toISOString(),
+  })
+}
+
 export async function retireTeam(teamId: string, retired: boolean): Promise<void> {
   await update(ref(requireDatabase(), `teams/${teamId}`), {
     retired,

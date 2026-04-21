@@ -88,6 +88,7 @@ export interface TeamRecord {
   requireScorerModal?: boolean
   showScorerInEvents?: boolean
   showScorerInEventsForCoach?: boolean
+  hideHistoricalMatches?: boolean
   createdAt: string
   updatedAt: string
 }
