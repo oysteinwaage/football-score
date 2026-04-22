@@ -1,7 +1,6 @@
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded'
-import MusicNoteRoundedIcon from '@mui/icons-material/MusicNoteRounded'
 import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded'
 import {
   Alert,
@@ -26,6 +25,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
+import { keyframes } from '@mui/system'
 import { useEffect, useRef, useState } from 'react'
 
 import trulsFjes from '../assets/truls_fjes.png'
@@ -44,6 +44,33 @@ type PlayCountModalData = {
 }
 
 type ActiveItem = { type: 'official' | 'other'; index: number } | null
+
+const eqBar = [
+  keyframes`0%,100%{height:3px}50%{height:15px}`,
+  keyframes`0%,100%{height:12px}40%{height:3px}70%{height:15px}`,
+  keyframes`0%,100%{height:6px}30%{height:15px}65%{height:3px}`,
+]
+
+function EqualizerBars({ playing }: { playing: boolean }) {
+  const staticHeights = [4, 11, 6]
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: '2.5px', height: 20, width: 20, justifyContent: 'center', pb: '2px' }}>
+      {eqBar.map((anim, i) => (
+        <Box
+          key={i}
+          sx={{
+            width: 3,
+            borderRadius: '2px',
+            bgcolor: 'primary.main',
+            height: playing ? 3 : staticHeights[i],
+            animation: playing ? `${anim} ${0.65 + i * 0.12}s ease-in-out infinite` : 'none',
+            transition: 'height 0.25s ease',
+          }}
+        />
+      ))}
+    </Box>
+  )
+}
 
 function PlayCountModal({ data, onClose }: { data: PlayCountModalData; onClose: () => void }) {
   return (
@@ -139,22 +166,35 @@ function PlaylistRow({
   }
 
   return (
-    <Box sx={isActive ? { bgcolor: 'action.hover' } : undefined}>
+    <Box sx={{ bgcolor: isActive ? 'action.hover' : 'transparent', transition: 'background-color 0.35s ease' }}>
       <Stack direction="row" sx={{ alignItems: 'center', px: 2, py: 1.5, gap: 1 }}>
         {!isActive && (
-          <IconButton size="small" onClick={handlePlayPauseClick} color="primary" sx={{ flexShrink: 0 }}>
+          <IconButton
+            size="small"
+            onClick={handlePlayPauseClick}
+            color="primary"
+            sx={{
+              flexShrink: 0,
+              transition: 'transform 0.15s ease',
+              '&:hover': { transform: 'scale(1.2)' },
+            }}
+          >
             <PlayArrowRoundedIcon />
           </IconButton>
         )}
         {isActive && (
-          <Box sx={{ flexShrink: 0, p: '5px', display: 'flex' }}>
-            <MusicNoteRoundedIcon fontSize="small" color="primary" />
+          <Box sx={{ flexShrink: 0, p: '5px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30 }}>
+            <EqualizerBars playing={audioPlaying} />
           </Box>
         )}
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Typography
             variant="body1"
-            sx={{ fontWeight: isActive ? 600 : 400, color: isActive ? 'primary.main' : 'text.primary' }}
+            sx={{
+              fontWeight: isActive ? 600 : 400,
+              color: isActive ? 'primary.main' : 'text.primary',
+              transition: 'color 0.35s ease',
+            }}
           >
             {title}
           </Typography>
