@@ -312,6 +312,7 @@ export function MatchPage() {
   const isFirstHalf = match.clock.status === MatchStatus.FIRST_HALF
   const isHalfTime = match.clock.status === MatchStatus.HALF_TIME
   const isFinished = match.clock.status === MatchStatus.FINISHED
+  const isPreMatch = isScheduled && Date.now() >= new Date(match.startsAt).getTime() - 30 * 60 * 1000
   const isOvertime =
     ((isFirstHalf || isHalfTime) && clockSeconds > halfDuration) ||
     clockSeconds > fullDuration
@@ -517,7 +518,7 @@ export function MatchPage() {
         </Card>
       )}
 
-      {canManage && (isFirstHalf || isHalfTime || match.clock.status === MatchStatus.SECOND_HALF) && (
+      {canManage && (isPreMatch || isFirstHalf || isHalfTime || match.clock.status === MatchStatus.SECOND_HALF) && (
         <Card>
           <CardContent>
             <Stack spacing={2} direction="row" sx={{ alignItems: 'flex-start' }}>

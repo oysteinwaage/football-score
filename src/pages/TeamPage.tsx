@@ -65,7 +65,7 @@ export function TeamPage() {
   const [halfDurationValue, setHalfDurationValue] = useState('')
   const [halfDurationSaving, setHalfDurationSaving] = useState(false)
 
-  const canManage = Boolean(profile?.roles.some((role) => role === UserRole.ADMIN || role === UserRole.KAMPLEDER || role === UserRole.TRENER))
+  const canAddMatch = Boolean(profile?.roles.some((role) => role === UserRole.ADMIN || role === UserRole.TRENER))
   const canEditRoster = Boolean(profile?.roles.some((role) => role === UserRole.ADMIN || role === UserRole.TRENER))
   const isAdmin = Boolean(profile?.roles.includes(UserRole.ADMIN))
   const hasAccess = Boolean(profile && (isAdmin || profile.teamIds.includes(teamId)))
@@ -350,7 +350,7 @@ export function TeamPage() {
           </Typography>
         </div>
         <Stack direction="row" spacing={1}>
-          {canManage && !team.retired && (
+          {canAddMatch && !team.retired && (
             <Button variant="contained" startIcon={<AddCircleRoundedIcon />} onClick={() => setDialogOpen(true)}>
               Legg til kamp
             </Button>
