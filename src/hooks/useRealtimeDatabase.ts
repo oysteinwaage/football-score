@@ -74,6 +74,7 @@ export function useDocument<T extends { id?: string }>(path: string | null): Use
         setError(null)
       },
       (nextError) => {
+        console.log("nextError", nextError)
         if (nextError.message.includes('NOT_FOUND')) {
           window.location.href = '/'
           return
