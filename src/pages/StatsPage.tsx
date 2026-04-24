@@ -27,7 +27,7 @@ import { useMemo, useState } from 'react'
 
 import { useAuth } from '../context/AuthContext'
 import { useCollection } from '../hooks/useRealtimeDatabase'
-import { MatchRecord, MatchStatus, TeamRecord, TeamType, UserProfile, UserRole } from '../types/domain'
+import { MatchEventType, MatchRecord, MatchStatus, TeamRecord, TeamType, UserProfile, UserRole } from '../types/domain'
 
 function StatCard({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
   return (
@@ -71,6 +71,7 @@ export function StatsPage() {
 
     let wins = 0, draws = 0, losses = 0, goalsFor = 0, goalsAgainst = 0
     const goalScorerMap: Record<string, number> = {}
+    const goalAssistMap: Record<string, number> = {}
     const playerParticipation: Record<string, number> = {}
     const coachParticipation: Record<string, number> = {}
     const keeperAppearances: Record<string, number> = {}
@@ -91,6 +92,19 @@ export function StatsPage() {
         goalScorerMap[scorer.name] = (goalScorerMap[scorer.name] ?? 0) + scorer.goals
       }
 
+      if (match.goalAssists && match.goalAssists.length > 0) {
+        for (const assist of match.goalAssists) {
+          goalAssistMap[assist.name] = (goalAssistMap[assist.name] ?? 0) + assist.assists
+        }
+      } else {
+        const ourGoalType = ourSide === 'home' ? MatchEventType.GOAL_HOME : MatchEventType.GOAL_AWAY
+        for (const event of match.events ?? []) {
+          if (event.type === ourGoalType && event.assistName) {
+            goalAssistMap[event.assistName] = (goalAssistMap[event.assistName] ?? 0) + 1
+          }
+        }
+      }
+
       for (const player of match.playerNames ?? []) {
         playerParticipation[player] = (playerParticipation[player] ?? 0) + 1
       }
@@ -108,6 +122,10 @@ export function StatsPage() {
       .map(([name, goals]) => ({ name, goals }))
       .sort((a, b) => b.goals - a.goals)
 
+    const topAssists = Object.entries(goalAssistMap)
+      .map(([name, assists]) => ({ name, assists }))
+      .sort((a, b) => b.assists - a.assists)
+
     const playerList = Object.entries(playerParticipation)
       .map(([name, matches]) => ({ name, matches, keeperCount: keeperAppearances[name] ?? 0 }))
       .sort((a, b) => b.matches - a.matches)
@@ -122,6 +140,7 @@ export function StatsPage() {
       goalsFor, goalsAgainst,
       goalDifference: goalsFor - goalsAgainst,
       topScorers,
+      topAssists,
       playerList,
       coachList,
     }
@@ -268,6 +287,38 @@ export function StatsPage() {
                             </Stack>
                           </TableCell>
                           <TableCell align="right"><strong>{s.goals}</strong></TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </StatCard>
+            </Grid>
+
+            <Grid size={{ xs: 12, md: 6 }}>
+              <StatCard title="Flest assist" icon={<SportsSoccerRoundedIcon color="secondary" />}>
+                {stats.topAssists.length === 0 ? (
+                  <Typography color="text.secondary" variant="body2">Ingen registrerte assist.</Typography>
+                ) : (
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>#</TableCell>
+                        <TableCell>Spiller</TableCell>
+                        <TableCell align="right">Assist</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {stats.topAssists.map((a, i) => (
+                        <TableRow key={a.name}>
+                          <TableCell>{i + 1}</TableCell>
+                          <TableCell>
+                            <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                              {i === 0 && <EmojiEventsRoundedIcon fontSize="small" color="warning" />}
+                              <span>{a.name}</span>
+                            </Stack>
+                          </TableCell>
+                          <TableCell align="right"><strong>{a.assists}</strong></TableCell>
                         </TableRow>
                       ))}
                     </TableBody>

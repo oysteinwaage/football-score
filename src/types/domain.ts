@@ -49,12 +49,18 @@ export interface MatchEvent {
   matchSecond: number
   scoreAfter?: MatchScore
   scorerName?: string
+  assistName?: string
   corrected?: boolean
 }
 
 export interface GoalScorer {
   name: string
   goals: number
+}
+
+export interface GoalAssist {
+  name: string
+  assists: number
 }
 
 export interface UserProfile {
@@ -107,6 +113,7 @@ export interface MatchRecord {
   playerNames: string[]
   coachNames: string[]
   goalScorers: GoalScorer[]
+  goalAssists?: GoalAssist[]
   keeperNames: string[]
   createdAt: string
   updatedAt: string

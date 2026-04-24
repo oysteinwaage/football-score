@@ -38,8 +38,23 @@ import { RosterCard } from '../components/RosterCard'
 import { useAuth } from '../context/AuthContext'
 import { useDocument } from '../hooks/useRealtimeDatabase'
 import { updateMatch } from '../services/matchService'
-import { GoalScorer, MatchEvent, MatchEventType, MatchRecord, MatchStatus, TeamRecord, UserRole } from '../types/domain'
+import { GoalAssist, GoalScorer, MatchEvent, MatchEventType, MatchRecord, MatchStatus, TeamRecord, UserRole } from '../types/domain'
 import { formatMatchTime, getLiveElapsedSeconds } from '../utils/matchClock'
+
+function computeGoalStats(events: MatchEvent[], ourGoalType: MatchEventType): { goalScorers: GoalScorer[]; goalAssists: GoalAssist[] } {
+  const scorerCounts: Record<string, number> = {}
+  const assistCounts: Record<string, number> = {}
+  for (const event of events) {
+    if (event.type === ourGoalType) {
+      if (event.scorerName) scorerCounts[event.scorerName] = (scorerCounts[event.scorerName] ?? 0) + 1
+      if (event.assistName) assistCounts[event.assistName] = (assistCounts[event.assistName] ?? 0) + 1
+    }
+  }
+  return {
+    goalScorers: Object.entries(scorerCounts).map(([name, goals]) => ({ name, goals })),
+    goalAssists: Object.entries(assistCounts).map(([name, assists]) => ({ name, assists })),
+  }
+}
 
 function createEvent(
   type: MatchEventType,
@@ -68,6 +83,8 @@ export function MatchPage() {
   const fullDuration = halfDuration * 2
   const [clockSeconds, setClockSeconds] = useState(0)
   const [scorerModalOpen, setScorerModalOpen] = useState(false)
+  const [pendingScorer, setPendingScorer] = useState('')
+  const [assistModalOpen, setAssistModalOpen] = useState(false)
   const [infoNote, setInfoNote] = useState('')
   const [endMatchModalOpen, setEndMatchModalOpen] = useState(false)
   const [endMatchNote, setEndMatchNote] = useState('')
@@ -179,13 +196,7 @@ export function MatchPage() {
 
   const endMatch = async () => {
     const ourGoalType = ourSide === 'home' ? MatchEventType.GOAL_HOME : MatchEventType.GOAL_AWAY
-    const scorerCounts: Record<string, number> = {}
-    for (const event of match.events) {
-      if (event.type === ourGoalType && event.scorerName) {
-        scorerCounts[event.scorerName] = (scorerCounts[event.scorerName] ?? 0) + 1
-      }
-    }
-    const goalScorers: GoalScorer[] = Object.entries(scorerCounts).map(([name, goals]) => ({ name, goals }))
+    const { goalScorers, goalAssists } = computeGoalStats(match.events, ourGoalType)
 
     const matchEndedEvent = createEvent(MatchEventType.MATCH_ENDED, 'Kampen avsluttet', fullDuration, match.score)
     const endEvents: MatchEvent[] = [matchEndedEvent]
@@ -205,6 +216,7 @@ export function MatchPage() {
       },
       events: [...match.events, ...endEvents],
       goalScorers,
+      goalAssists,
       keeperNames: endMatchKeepers,
     }
 
@@ -214,7 +226,7 @@ export function MatchPage() {
     setEndMatchKeepers([])
   }
 
-  const registerGoal = async (side: 'home' | 'away', scorerName: string) => {
+  const registerGoal = async (side: 'home' | 'away', scorerName: string, assistName?: string) => {
     const elapsedSeconds = getLiveElapsedSeconds(match.clock)
     const score = {
       home: side === 'home' ? match.score.home + 1 : match.score.home,
@@ -224,21 +236,27 @@ export function MatchPage() {
     const isOpponent = side === opponentSide
     const hasScorer = scorerName.trim().length > 0
     const scorer = scorerName.trim() || 'Ukjent spiller'
+    const assistSuffix = !isOpponent && assistName ? ` (assist: ${assistName})` : ''
     const text = isOpponent
       ? `${teamName} scoret. Stillingen er nå ${score.home} - ${score.away}.`
       : hasScorer
-        ? `${scorer} scoret for ${teamName}. Stillingen er nå ${score.home} - ${score.away}.`
+        ? `${scorer} scoret for ${teamName}${assistSuffix}. Stillingen er nå ${score.home} - ${score.away}.`
         : `${teamName} scoret 🎉. Stillingen er nå ${score.home} - ${score.away}.`
     const eventType = side === 'home' ? MatchEventType.GOAL_HOME : MatchEventType.GOAL_AWAY
     const storedScorerName = isOpponent || !hasScorer ? undefined : scorer
+    const storedAssistName = !isOpponent && assistName ? assistName : undefined
     const newEvent: MatchEvent = {
       ...createEvent(eventType, text, elapsedSeconds, score, storedScorerName),
+      ...(storedAssistName ? { assistName: storedAssistName } : {}),
       ...(correctionMode ? { corrected: true } : {}),
     }
+    const nextEvents = [...match.events, newEvent]
+    const goalStats = isFinished ? computeGoalStats(nextEvents, ourSide === 'home' ? MatchEventType.GOAL_HOME : MatchEventType.GOAL_AWAY) : {}
     const nextMatch: MatchRecord = {
       ...match,
       score,
-      events: [...match.events, newEvent],
+      events: nextEvents,
+      ...goalStats,
     }
 
     await persistMatch(nextMatch, 'Målet er registrert.')
@@ -278,7 +296,9 @@ export function MatchPage() {
       home: nextEvents.filter((e) => e.type === MatchEventType.GOAL_HOME).length,
       away: nextEvents.filter((e) => e.type === MatchEventType.GOAL_AWAY).length,
     }
-    await persistMatch({ ...match, events: nextEvents, score: nextScore }, 'Målhendelsen er fjernet.')
+    const ourGoalType = ourSide === 'home' ? MatchEventType.GOAL_HOME : MatchEventType.GOAL_AWAY
+    const { goalScorers, goalAssists } = computeGoalStats(nextEvents, ourGoalType)
+    await persistMatch({ ...match, events: nextEvents, score: nextScore, goalScorers, goalAssists }, 'Målhendelsen er fjernet.')
   }
 
   const removeInfoEvent = async (eventId: string) => {
@@ -698,7 +718,8 @@ export function MatchPage() {
                 label={player}
                 onClick={() => {
                   setScorerModalOpen(false)
-                  void registerGoal(ourSide, player)
+                  setPendingScorer(player)
+                  setAssistModalOpen(true)
                 }}
               />
             ))}
@@ -707,13 +728,43 @@ export function MatchPage() {
               variant="outlined"
               onClick={() => {
                 setScorerModalOpen(false)
-                void registerGoal(ourSide, 'Ukjent spiller')
+                setPendingScorer('Ukjent spiller')
+                setAssistModalOpen(true)
               }}
             />
           </Stack>
         </DialogContent>
         <DialogActions sx={{ p: 3, pt: 0 }}>
           <Button onClick={() => setScorerModalOpen(false)}>Avbryt</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={assistModalOpen} onClose={() => { setAssistModalOpen(false); void registerGoal(ourSide, pendingScorer) }} fullWidth maxWidth="xs">
+        <DialogTitle>Hvem hadde assist?</DialogTitle>
+        <DialogContent>
+          <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', pt: 1 }}>
+            {matchPlayerNames.filter((p) => p !== pendingScorer).map((player) => (
+              <Chip
+                key={player}
+                label={player}
+                onClick={() => {
+                  setAssistModalOpen(false)
+                  void registerGoal(ourSide, pendingScorer, player)
+                }}
+              />
+            ))}
+            <Chip
+              label="Ingen assist"
+              variant="outlined"
+              onClick={() => {
+                setAssistModalOpen(false)
+                void registerGoal(ourSide, pendingScorer)
+              }}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, pt: 0 }}>
+          <Button onClick={() => { setAssistModalOpen(false); void registerGoal(ourSide, pendingScorer) }}>Hopp over</Button>
         </DialogActions>
       </Dialog>
     </Stack>

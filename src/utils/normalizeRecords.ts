@@ -3,6 +3,7 @@ import {
   MatchStatus,
   TeamType,
   UserRole,
+  type GoalAssist,
   type GoalScorer,
   type MatchClock,
   type MatchEvent,
@@ -64,6 +65,7 @@ function toMatchEvents(value: unknown): MatchEvent[] {
         matchSecond: typeof candidate.matchSecond === 'number' ? candidate.matchSecond : 0,
         scoreAfter: candidate.scoreAfter ? toMatchScore(candidate.scoreAfter) : undefined,
         scorerName: typeof candidate.scorerName === 'string' ? candidate.scorerName : undefined,
+        assistName: typeof candidate.assistName === 'string' ? candidate.assistName : undefined,
         corrected: candidate.corrected === true ? true : undefined,
       },
     ]
@@ -77,6 +79,16 @@ function toGoalScorers(value: unknown): GoalScorer[] {
     const candidate = item as Partial<GoalScorer>
     if (typeof candidate.name !== 'string' || typeof candidate.goals !== 'number') return []
     return [{ name: candidate.name, goals: candidate.goals }]
+  })
+}
+
+function toGoalAssists(value: unknown): GoalAssist[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item) => {
+    if (typeof item !== 'object' || item === null) return []
+    const candidate = item as Partial<GoalAssist>
+    if (typeof candidate.name !== 'string' || typeof candidate.assists !== 'number') return []
+    return [{ name: candidate.name, assists: candidate.assists }]
   })
 }
 
@@ -146,6 +158,7 @@ export function normalizeMatchRecord(value: unknown, id: string): MatchRecord {
     playerNames: toStringArray(source.playerNames),
     coachNames: toStringArray(source.coachNames),
     goalScorers: toGoalScorers(source.goalScorers),
+    goalAssists: toGoalAssists(source.goalAssists),
     keeperNames: toStringArray(source.keeperNames),
     createdAt: typeof source.createdAt === 'string' ? source.createdAt : new Date(0).toISOString(),
     updatedAt: typeof source.updatedAt === 'string' ? source.updatedAt : new Date(0).toISOString(),
