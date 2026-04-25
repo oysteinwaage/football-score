@@ -14,11 +14,12 @@ import { FormEvent, useState } from 'react'
 
 import { useAuth } from '../context/AuthContext'
 import { useCollection } from '../hooks/useRealtimeDatabase'
-import { TeamRecord } from '../types/domain'
+import { TeamRecord, TeamType } from '../types/domain'
 
 export function OnboardingForm() {
   const { completeOnboarding, user } = useAuth()
-  const { data: teams } = useCollection<TeamRecord>('teams')
+  const { data: allTeams } = useCollection<TeamRecord>('teams')
+  const teams = allTeams.filter((t) => !t.retired && t.teamType !== TeamType.TEST)
   const [parentName, setParentName] = useState(user?.displayName ?? '')
   const [childName, setChildName] = useState('')
   const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>([])
