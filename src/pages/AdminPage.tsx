@@ -3,6 +3,7 @@ import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded'
 import {
   Alert,
+  Avatar,
   Box,
   Button,
   Card,
@@ -226,7 +227,11 @@ export function AdminPage() {
                   sx={{ px: 2, py: 1.5, cursor: 'pointer', userSelect: 'none' }}
                 >
                   <Stack direction="row" spacing={2} sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { sm: 'center' }, flex: 1, minWidth: 0 }}>
+                    <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flex: 1, minWidth: 0 }}>
+                      <Avatar src={user.photoUrl} sx={{ width: 32, height: 32, fontSize: '0.875rem' }}>
+                        {!user.photoUrl && user.parentName.charAt(0).toUpperCase()}
+                      </Avatar>
+                      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { sm: 'center' }, minWidth: 0 }}>
                       <Stack direction="row" spacing={0.75} sx={{ alignItems: 'baseline' }}>
                         <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>{user.parentName}</Typography>
                         <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>{user.childName}</Typography>
@@ -235,6 +240,7 @@ export function AdminPage() {
                         {user.roles.map((role) => (
                           <Chip key={role} label={role} size="small" color="primary" variant="outlined" />
                         ))}
+                      </Stack>
                       </Stack>
                     </Stack>
                     <ExpandMoreRoundedIcon
@@ -248,12 +254,17 @@ export function AdminPage() {
                   <CardContent>
                     <Stack spacing={2}>
                       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ justifyContent: 'space-between' }}>
-                        <Box>
-                          <Typography variant="h6">{user.parentName}</Typography>
-                          <Typography color="text.secondary">
-                            Barn: {user.childName} · {user.email ?? 'Ingen e-post'}
-                          </Typography>
-                        </Box>
+                        <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
+                          <Avatar src={user.photoUrl} sx={{ width: 48, height: 48 }}>
+                            {!user.photoUrl && user.parentName.charAt(0).toUpperCase()}
+                          </Avatar>
+                          <Box>
+                            <Typography variant="h6">{user.parentName}</Typography>
+                            <Typography color="text.secondary">
+                              Barn: {user.childName} · {user.email ?? 'Ingen e-post'}
+                            </Typography>
+                          </Box>
+                        </Stack>
                         <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'flex-end' }}>
                           <FormControlLabel
                             control={<Switch checked={user.approved} onChange={() => void toggleApproval(user)} />}

@@ -24,12 +24,27 @@ export async function createUserProfile(user: User, parentName: string, childNam
     roles: [UserRole.FORELDER],
     teamIds,
     approved: false,
+    ...(user.photoURL ? { photoUrl: user.photoURL } : {}),
     createdAt: now,
     updatedAt: now,
   }
 
   await set(ref(requireDatabase(), `users/${user.uid}`), profile)
   return profile
+}
+
+export async function saveUserPhotoUrl(userId: string, photoUrl: string): Promise<void> {
+  await update(ref(requireDatabase(), `users/${userId}`), {
+    photoUrl,
+    updatedAt: new Date().toISOString(),
+  })
+}
+
+export async function declineUserPhotoUrl(userId: string): Promise<void> {
+  await update(ref(requireDatabase(), `users/${userId}`), {
+    declinedPhotoUrl: true,
+    updatedAt: new Date().toISOString(),
+  })
 }
 
 export async function updateUserAccess(

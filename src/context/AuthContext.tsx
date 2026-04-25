@@ -14,7 +14,7 @@ import { ReactNode } from 'react'
 
 import { auth, database, firebaseConfigError, isFirebaseConfigured } from '../firebase/config'
 import { UserProfile } from '../types/domain'
-import { createUserProfile } from '../services/userService'
+import { createUserProfile, declineUserPhotoUrl, saveUserPhotoUrl } from '../services/userService'
 import { normalizeUserProfile } from '../utils/normalizeRecords'
 
 interface AuthContextValue {
@@ -24,10 +24,13 @@ interface AuthContextValue {
   initializing: boolean
   firebaseReady: boolean
   configError: string | null
+  photoUrlPending: boolean
   signInWithGoogle: () => Promise<void>
   signInWithMicrosoft: () => Promise<void>
   signOutUser: () => Promise<void>
   completeOnboarding: (parentName: string, childName: string, teamIds: string[]) => Promise<void>
+  acceptPhotoUrl: () => Promise<void>
+  declinePhotoUrl: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -88,6 +91,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe()
   }, [user])
 
+  const photoUrlPending = Boolean(
+    user?.photoURL &&
+    profile?.approved &&
+    !profile.photoUrl &&
+    !profile.declinedPhotoUrl,
+  )
+
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
@@ -96,6 +106,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       initializing: authLoading || profileLoading,
       firebaseReady: isFirebaseConfigured,
       configError: firebaseConfigError,
+      photoUrlPending,
+      acceptPhotoUrl: async () => {
+        if (!user?.photoURL) return
+        await saveUserPhotoUrl(user.uid, user.photoURL)
+      },
+      declinePhotoUrl: async () => {
+        if (!user) return
+        await declineUserPhotoUrl(user.uid)
+      },
       signInWithGoogle: async () => {
         if (!auth) {
           throw new Error(firebaseConfigError ?? 'Firebase er ikke konfigurert.')
@@ -129,7 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfileMissing(false)
       },
     }),
-    [authLoading, profile, profileLoading, profileMissing, user],
+    [authLoading, photoUrlPending, profile, profileLoading, profileMissing, user],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

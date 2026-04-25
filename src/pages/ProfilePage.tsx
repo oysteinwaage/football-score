@@ -1,4 +1,3 @@
-import AccountCircleRoundedIcon from '@mui/icons-material/AccountCircleRounded'
 import {
   Alert,
   Avatar,
@@ -78,8 +77,11 @@ export function ProfilePage() {
         <CardContent>
           <Stack spacing={3}>
             <Stack direction="row" spacing={2} sx={{ alignItems: 'center' }}>
-              <Avatar sx={{ width: 56, height: 56, bgcolor: 'primary.main' }}>
-                <AccountCircleRoundedIcon fontSize="large" />
+              <Avatar
+                src={profile.photoUrl}
+                sx={{ width: 56, height: 56, bgcolor: 'primary.main' }}
+              >
+                {!profile.photoUrl && profile.parentName.charAt(0).toUpperCase()}
               </Avatar>
               <Box>
                 <Typography variant="h6">{profile.parentName}</Typography>

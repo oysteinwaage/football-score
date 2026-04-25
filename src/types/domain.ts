@@ -73,6 +73,8 @@ export interface UserProfile {
   roles: UserRole[]
   teamIds: string[]
   approved: boolean
+  photoUrl?: string
+  declinedPhotoUrl?: boolean
   songPlays?: Record<string, number>
   createdAt: string
   updatedAt: string

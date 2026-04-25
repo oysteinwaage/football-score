@@ -20,7 +20,9 @@ import {
   Button,
   Collapse,
   Dialog,
+  DialogActions,
   DialogContent,
+  DialogContentText,
   DialogTitle,
   Divider,
   Drawer,
@@ -65,7 +67,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const location = useLocation()
   const theme = useTheme()
   const isDesktop = useMediaQuery(theme.breakpoints.up('md'))
-  const { profile, signOutUser } = useAuth()
+  const { profile, signOutUser, photoUrlPending, acceptPhotoUrl, declinePhotoUrl } = useAuth()
   const { data: allTeams } = useCollection<TeamRecord>('teams')
 
   const navigationItems = useMemo(() => {
@@ -293,7 +295,11 @@ export function AppShell({ children }: { children: ReactNode }) {
             onClick={() => setMobileOpen(false)}
             sx={{ borderRadius: 3, mb: 0.5 }}
           >
-            <ListItemIcon><AccountCircleRoundedIcon /></ListItemIcon>
+            <ListItemIcon>
+              {profile?.photoUrl
+                ? <Avatar src={profile.photoUrl} sx={{ width: 24, height: 24 }} />
+                : <AccountCircleRoundedIcon />}
+            </ListItemIcon>
             <ListItemText primary="Min side" />
           </ListItemButton>
         )}
@@ -307,6 +313,19 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
+      <Dialog open={photoUrlPending} maxWidth="xs" fullWidth>
+        <DialogTitle>Bruk Google-profilbilde?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Vil du bruke profilbildet fra Google-kontoen din som ikon for «Min side» i appen?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, pt: 0 }}>
+          <Button onClick={() => void declinePhotoUrl()}>Nei takk</Button>
+          <Button variant="contained" onClick={() => void acceptPhotoUrl()}>Ja, bruk bildet</Button>
+        </DialogActions>
+      </Dialog>
+
       <Dialog open={shareModalOpen} onClose={() => setShareModalOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle>Del app'en</DialogTitle>
         <DialogContent>
