@@ -240,7 +240,7 @@ export function MatchPage() {
     const text = isOpponent
       ? `${teamName} scoret. Stillingen er nå ${score.home} - ${score.away}.`
       : hasScorer
-        ? `${scorer} scoret for ${teamName}${assistSuffix}. Stillingen er nå ${score.home} - ${score.away}.`
+        ? `${scorer} scoret${assistSuffix} for ${teamName}. Stillingen er nå ${score.home} - ${score.away}.`
         : `${teamName} scoret 🎉. Stillingen er nå ${score.home} - ${score.away}.`
     const eventType = side === 'home' ? MatchEventType.GOAL_HOME : MatchEventType.GOAL_AWAY
     const storedScorerName = isOpponent || !hasScorer ? undefined : scorer
