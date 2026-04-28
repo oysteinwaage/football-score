@@ -7,6 +7,11 @@ import {
   CardContent,
   Checkbox,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   Divider,
   FormControlLabel,
   Stack,
@@ -16,7 +21,7 @@ import { useState } from 'react'
 
 import { useAuth } from '../context/AuthContext'
 import { useCollection } from '../hooks/useRealtimeDatabase'
-import { updateUserAccess } from '../services/userService'
+import { deleteSelfFromAuth, deleteUserProfile, updateUserAccess } from '../services/userService'
 import { TeamRecord, UserRole } from '../types/domain'
 
 const roleLabels: Record<UserRole, string> = {
@@ -34,6 +39,9 @@ export function ProfilePage() {
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   if (!profile) return null
 
@@ -68,6 +76,19 @@ export function ProfilePage() {
   }
 
   const isDirty = selectedTeamIds !== null
+
+  const handleDeleteSelf = async () => {
+    setDeleting(true)
+    setDeleteError(null)
+    try {
+      await deleteUserProfile(profile.id)
+      await deleteSelfFromAuth()
+      // deleteUser logger automatisk ut brukeren
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : 'Kunne ikke slette brukeren.')
+      setDeleting(false)
+    }
+  }
 
   return (
     <Stack spacing={3}>
@@ -153,6 +174,41 @@ export function ProfilePage() {
           </CardContent>
         </Card>
       )}
+
+      <Card>
+        <CardContent>
+          <Stack spacing={2}>
+            <Typography variant="h6" color="error">Slett konto</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Dette sletter brukerprofilen din permanent og logger deg ut. Selve Google- eller Microsoft-kontoen din påvirkes ikke.
+            </Typography>
+            {deleteError && <Alert severity="error">{deleteError}</Alert>}
+            <Button
+              variant="outlined"
+              color="error"
+              sx={{ alignSelf: 'flex-start' }}
+              onClick={() => setDeleteDialogOpen(true)}
+            >
+              Slett min konto
+            </Button>
+          </Stack>
+        </CardContent>
+      </Card>
+
+      <Dialog open={deleteDialogOpen} onClose={() => !deleting && setDeleteDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Slett konto</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Er du sikker på at du vil slette brukerprofilen din? Dette kan ikke angres.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, pt: 0 }}>
+          <Button onClick={() => setDeleteDialogOpen(false)} disabled={deleting}>Avbryt</Button>
+          <Button color="error" variant="contained" onClick={() => void handleDeleteSelf()} disabled={deleting}>
+            {deleting ? 'Sletter...' : 'Ja, slett kontoen min'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Stack>
   )
 }

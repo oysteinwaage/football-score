@@ -5,6 +5,7 @@ import {
   Card,
   CardContent,
   Checkbox,
+  Divider,
   FormControlLabel,
   Stack,
   TextField,
@@ -16,8 +17,16 @@ import { useAuth } from '../context/AuthContext'
 import { useCollection } from '../hooks/useRealtimeDatabase'
 import { TeamRecord, TeamType } from '../types/domain'
 
+function providerName(user: ReturnType<typeof useAuth>['user']): string {
+  const id = user?.providerData?.[0]?.providerId ?? ''
+  if (id === 'google.com') return 'Google'
+  if (id.includes('microsoft')) return 'Microsoft'
+  return 'innloggingsleverandøren din'
+}
+
 export function OnboardingForm() {
   const { completeOnboarding, user } = useAuth()
+  const provider = providerName(user)
   const { data: allTeams } = useCollection<TeamRecord>('teams')
   const teams = allTeams.filter((t) => !t.retired && t.teamType !== TeamType.TEST)
   const [parentName, setParentName] = useState(user?.displayName ?? '')
@@ -88,6 +97,26 @@ export function OnboardingForm() {
                 ))}
               </Stack>
             )}
+            <Divider />
+
+            <Box>
+              <Typography variant="subtitle2" gutterBottom>Data som lagres fra {provider}-kontoen din</Typography>
+              <Stack spacing={0.5}>
+                {[
+                  'E-postadresse',
+                  'Visningsnavn',
+                  'Profilbilde',
+                ].map((item) => (
+                  <Typography key={item} variant="body2" color="text.secondary" sx={{ display: 'flex', gap: 1 }}>
+                    <span>·</span><span>{item}</span>
+                  </Typography>
+                ))}
+              </Stack>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                I tillegg lagres navn og informasjon du fyller inn i dette skjemaet. Ingen data deles med tredjepart.
+              </Typography>
+            </Box>
+
             <Button
               type="submit"
               size="large"
