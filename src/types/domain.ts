@@ -75,6 +75,7 @@ export interface UserProfile {
   approved: boolean
   photoUrl?: string
   declinedPhotoUrl?: boolean
+  showScorerInEvents?: boolean
   songPlays?: Record<string, number>
   createdAt: string
   updatedAt: string

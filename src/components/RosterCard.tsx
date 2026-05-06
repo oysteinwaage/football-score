@@ -123,7 +123,7 @@ export function RosterCard({ title, names, canEdit, suggestions = [], highlighte
               onChange={(e) => setNewName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && void handleAdd(newName)}
               fullWidth
-              autoFocus={suggestions.length === 0}
+              autoFocus
             />
           </Stack>
         </DialogContent>

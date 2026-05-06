@@ -28,7 +28,7 @@ import { Link as RouterLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useCollection } from '../hooks/useRealtimeDatabase'
 import { updateTeamHideHistoricalMatches, updateTeamRequireScorerModal, updateTeamShowScorerInEvents, updateTeamShowScorerInEventsForCoach } from '../services/teamService'
-import { deleteUserProfile, updateUserAccess } from '../services/userService'
+import { deleteUserProfile, updateUserAccess, updateUserShowScorerInEvents } from '../services/userService'
 import { TeamRecord, UserProfile, UserRole } from '../types/domain'
 
 export function AdminPage() {
@@ -306,6 +306,19 @@ export function AdminPage() {
                             />
                           ))}
                         </Stack>
+                      </Box>
+
+                      <Box>
+                        <Typography variant="subtitle2" gutterBottom>Hendelsesvisning</Typography>
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              checked={user.showScorerInEvents ?? false}
+                              onChange={() => void updateUserShowScorerInEvents(user.id, !(user.showScorerInEvents ?? false))}
+                            />
+                          }
+                          label="Vis målscorer og assist i hendelser"
+                        />
                       </Box>
                     </Stack>
                   </CardContent>

@@ -587,6 +587,7 @@ export function MatchPage() {
                             <span>
                               {team?.showScorerInEvents === false &&
                               !(team?.showScorerInEventsForCoach && isTrenerOrAdmin) &&
+                              !profile?.showScorerInEvents &&
                               event.type === (ourSide === 'home' ? MatchEventType.GOAL_HOME : MatchEventType.GOAL_AWAY) &&
                               event.scoreAfter
                                 ? `${ourTeamName} scoret 🎉. Stillingen er nå ${event.scoreAfter.home} - ${event.scoreAfter.away}.`

@@ -58,6 +58,13 @@ export async function updateUserAccess(
   })
 }
 
+export async function updateUserShowScorerInEvents(userId: string, value: boolean): Promise<void> {
+  await update(ref(requireDatabase(), `users/${userId}`), {
+    showScorerInEvents: value,
+    updatedAt: new Date().toISOString(),
+  })
+}
+
 export async function incrementUserSongPlay(userId: string, teamId: string): Promise<void> {
   await update(ref(requireDatabase(), `users/${userId}`), {
     [`songPlays/${teamId}`]: increment(1),

@@ -503,7 +503,7 @@ export function SangerPage() {
           >
             Legg til sang
           </Button>
-          {profile?.roles.includes(UserRole.TRENER) && eggVisible && (
+          {eggVisible && (
             <Box
               component="img"
               src={trulsFjes}
@@ -518,7 +518,7 @@ export function SangerPage() {
         </Box>
       </Stack>
 
-      {profile?.roles.includes(UserRole.TRENER) && spotifyVisible && (
+      {spotifyVisible && (
         <Card variant="outlined" sx={{ overflow: 'hidden', borderRadius: 3 }}>
           <Box
             component="iframe"

@@ -110,6 +110,7 @@ export function normalizeUserProfile(value: unknown, id: string): UserProfile {
     approved: typeof source.approved === 'boolean' ? source.approved : false,
     photoUrl: typeof source.photoUrl === 'string' ? source.photoUrl : undefined,
     declinedPhotoUrl: source.declinedPhotoUrl === true ? true : undefined,
+    showScorerInEvents: source.showScorerInEvents === true ? true : undefined,
     songPlays: typeof source.songPlays === 'object' && source.songPlays !== null
       ? Object.fromEntries(Object.entries(source.songPlays).filter(([, v]) => typeof v === 'number') as [string, number][])
       : undefined,
