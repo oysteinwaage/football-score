@@ -2,8 +2,6 @@ import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded'
 import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded'
-import SkipNextRoundedIcon from '@mui/icons-material/SkipNextRounded'
-import SkipPreviousRoundedIcon from '@mui/icons-material/SkipPreviousRounded'
 import {
   Alert,
   Box,
@@ -129,8 +127,6 @@ function PlaylistRow({
   onDelete,
   onPlayCountClick,
   nextTitle,
-  onPrev,
-  onNext,
 }: {
   title: string
   url: string
@@ -143,8 +139,6 @@ function PlaylistRow({
   onDelete?: () => void
   onPlayCountClick?: () => void
   nextTitle?: string
-  onPrev?: () => void
-  onNext?: () => void
 }) {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const [audioPlaying, setAudioPlaying] = useState(false)
@@ -230,33 +224,25 @@ function PlaylistRow({
       </Stack>
       <Collapse in={isActive} unmountOnExit={false}>
         <Box sx={{ px: 2, pb: 1.5 }}>
-          <Stack direction="row" sx={{ alignItems: 'center', gap: 0.5 }}>
-            <IconButton size="small" onClick={onPrev} disabled={!onPrev} sx={{ flexShrink: 0 }}>
-              <SkipPreviousRoundedIcon />
-            </IconButton>
-            <Box
-              component="audio"
-              ref={audioRef}
-              controls
-              src={url}
-              preload="none"
-              sx={{ flex: 1, minWidth: 0 }}
-              onPlay={() => {
-                setAudioPlaying(true)
-                const audio = audioRef.current
-                if (audio && audio.currentTime < 1) onStarted?.()
-              }}
-              onPause={() => setAudioPlaying(false)}
-              onEnded={() => {
-                setAudioPlaying(false)
-                if (audioRef.current) audioRef.current.currentTime = 0
-                onEnded?.()
-              }}
-            />
-            <IconButton size="small" onClick={onNext} disabled={!onNext} sx={{ flexShrink: 0 }}>
-              <SkipNextRoundedIcon />
-            </IconButton>
-          </Stack>
+          <Box
+            component="audio"
+            ref={audioRef}
+            controls
+            src={url}
+            preload="none"
+            sx={{ width: '100%' }}
+            onPlay={() => {
+              setAudioPlaying(true)
+              const audio = audioRef.current
+              if (audio && audio.currentTime < 1) onStarted?.()
+            }}
+            onPause={() => setAudioPlaying(false)}
+            onEnded={() => {
+              setAudioPlaying(false)
+              if (audioRef.current) audioRef.current.currentTime = 0
+              onEnded?.()
+            }}
+          />
           {nextTitle && (
             <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
               Neste sang: {nextTitle}
@@ -384,17 +370,7 @@ export function SangerPage() {
     }
   }
 
-  const playPrev = (type: 'official' | 'other', index: number) => {
-    if (type === 'official') {
-      if (index > 0) setActiveItem({ type: 'official', index: index - 1 })
-    } else {
-      if (index > 0) {
-        setActiveItem({ type: 'other', index: index - 1 })
-      } else if (teamsWithSong.length > 0) {
-        setActiveItem({ type: 'official', index: teamsWithSong.length - 1 })
-      }
-    }
-  }
+
 
   const getNextTitle = (type: 'official' | 'other', index: number): string | undefined => {
     if (type === 'official') {
@@ -404,7 +380,6 @@ export function SangerPage() {
     }
     return index + 1 < sortedSongs.length ? sortedSongs[index + 1].title : undefined
   }
-
 
   const openTeamSongModal = (team: TeamRecord) => {
     const entries = users
@@ -460,8 +435,6 @@ export function SangerPage() {
                   onEnded={() => playNext('official', index)}
                   onPlayCountClick={canViewStats ? () => openTeamSongModal(team) : undefined}
                   nextTitle={getNextTitle('official', index)}
-                  onNext={getNextTitle('official', index) !== undefined ? () => playNext('official', index) : undefined}
-                  onPrev={index > 0 ? () => playPrev('official', index) : undefined}
                 />
               </Box>
             ))}
@@ -488,8 +461,6 @@ export function SangerPage() {
                   onDelete={canEdit ? () => setDeleteConfirmSong(song) : undefined}
                   onPlayCountClick={canViewStats ? () => openSongModal(song) : undefined}
                   nextTitle={getNextTitle('other', index)}
-                  onNext={getNextTitle('other', index) !== undefined ? () => playNext('other', index) : undefined}
-                  onPrev={(index > 0 || teamsWithSong.length > 0) ? () => playPrev('other', index) : undefined}
                 />
               </Box>
             ))}
