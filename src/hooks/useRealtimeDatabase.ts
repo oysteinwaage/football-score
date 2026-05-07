@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { onValue, ref } from 'firebase/database'
+import { useNavigate } from 'react-router-dom'
 
 import { database, firebaseConfigError } from '../firebase/config'
 import { normalizeByPath } from '../utils/normalizeRecords'
@@ -50,6 +51,7 @@ export function useDocument<T extends { id?: string }>(path: string | null): Use
   const [data, setData] = useState<(T & { id: string }) | null>(null)
   const [loading, setLoading] = useState(Boolean(path))
   const [error, setError] = useState<string | null>(null)
+  const navigate = useNavigate()
 
   useEffect(() => {
     if (!path) {
@@ -74,9 +76,8 @@ export function useDocument<T extends { id?: string }>(path: string | null): Use
         setError(null)
       },
       (nextError) => {
-        console.log("nextError", nextError)
         if (nextError.message.includes('NOT_FOUND')) {
-          window.location.href = '/'
+          navigate('/', { replace: true })
           return
         }
         setError(nextError.message)
@@ -85,7 +86,7 @@ export function useDocument<T extends { id?: string }>(path: string | null): Use
     )
 
     return () => unsubscribe()
-  }, [path])
+  }, [path, navigate])
 
   return { data, loading, error }
 }
