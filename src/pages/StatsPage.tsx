@@ -2,11 +2,13 @@ import BarChartRoundedIcon from '@mui/icons-material/BarChartRounded'
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded'
 import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded'
 import MusicNoteRoundedIcon from '@mui/icons-material/MusicNoteRounded'
+import PublicRoundedIcon from '@mui/icons-material/PublicRounded'
 import SportsRoundedIcon from '@mui/icons-material/SportsRounded'
 import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded'
 import {
   Alert,
   Box,
+  Button,
   Card,
   CardContent,
   Chip,
@@ -24,6 +26,7 @@ import {
   Typography,
 } from '@mui/material'
 import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 import { useAuth } from '../context/AuthContext'
 import { useCollection } from '../hooks/useRealtimeDatabase'
@@ -51,6 +54,9 @@ export function StatsPage() {
   const { data: allMatches } = useCollection<MatchRecord>('matches')
   const { data: allUsers } = useCollection<UserProfile>('users')
   const [selectedTeamId, setSelectedTeamId] = useState<string>('')
+  const navigate = useNavigate()
+
+  const isAdmin = profile?.roles.includes(UserRole.ADMIN)
 
   const canView = profile?.roles.some((r) => r === UserRole.ADMIN || r === UserRole.STATS)
   if (!canView) {
@@ -160,7 +166,18 @@ export function StatsPage() {
 
   return (
     <Stack spacing={3}>
-      <Typography variant="h4">Statistikk</Typography>
+      <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
+        <Typography variant="h4">Statistikk</Typography>
+        {isAdmin && (
+          <Button
+            variant="outlined"
+            startIcon={<PublicRoundedIcon />}
+            onClick={() => navigate('/global-stats')}
+          >
+            Global statistikk
+          </Button>
+        )}
+      </Stack>
 
       <FormControl fullWidth>
         <InputLabel>Velg lag</InputLabel>

@@ -7,6 +7,7 @@ import { OnboardingForm } from './components/OnboardingForm'
 import { useAuth } from './context/AuthContext'
 import { AdminPage } from './pages/AdminPage'
 import { CreateTeamPage } from './pages/CreateTeamPage'
+import { GlobalStatsPage } from './pages/GlobalStatsPage'
 import { LoginPage } from './pages/LoginPage'
 import { MatchPage } from './pages/MatchPage'
 import { PendingApprovalPage } from './pages/PendingApprovalPage'
@@ -131,6 +132,7 @@ export default function App() {
         <Route element={<AdminRoute />}>
           <Route path="/admin" element={<AdminPage />} />
           <Route path="/create-team" element={<CreateTeamPage />} />
+          <Route path="/global-stats" element={<GlobalStatsPage />} />
         </Route>
       </Route>
       <Route path="*" element={<NotFoundPage />} />
