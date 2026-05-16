@@ -1,4 +1,5 @@
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded'
+import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded'
 import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded'
 import MusicNoteRoundedIcon from '@mui/icons-material/MusicNoteRounded'
 import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded'
@@ -9,6 +10,7 @@ import {
   Card,
   CardContent,
   Chip,
+  Collapse,
   Stack,
   Tab,
   Table,
@@ -19,20 +21,12 @@ import {
   Tabs,
   Typography,
 } from '@mui/material'
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 
 import { useAuth } from '../context/AuthContext'
 import { useCollection } from '../hooks/useRealtimeDatabase'
-import {
-  MatchEventType,
-  MatchRecord,
-  MatchStatus,
-  SongRecord,
-  TeamRecord,
-  TeamType,
-  UserProfile,
-  UserRole,
-} from '../types/domain'
+import type { MatchRecord, SongRecord, TeamRecord, UserProfile } from '../types/domain'
+import { MatchEventType, MatchStatus, TeamType, UserRole } from '../types/domain'
 
 const EXCLUDED_MISSED_TEAM_ID = '-OpeKF308QIyvxBCz833'
 
@@ -44,6 +38,16 @@ function normalizePlayerName(name: string): string {
   return PLAYER_NAME_ALIASES[name] ?? name
 }
 
+interface PlayerTeamBreakdown {
+  teamId: string
+  teamName: string
+  teamType: TeamType
+  cupName?: string
+  matchesPlayed: number
+  matchesMissed: number
+  isBorrowed: boolean
+}
+
 interface PlayerGlobalStats {
   name: string
   matchesPlayed: number
@@ -52,12 +56,23 @@ interface PlayerGlobalStats {
   goals: number
   assists: number
   keeperMatches: number
+  teamBreakdown: PlayerTeamBreakdown[]
+}
+
+interface CoachTeamBreakdown {
+  teamId: string
+  teamName: string
+  teamType: TeamType
+  cupName?: string
+  matchesAttended: number
+  matchesMissed: number
 }
 
 interface CoachGlobalStats {
   name: string
   matchesAttended: number
   matchesMissed: number
+  teamBreakdown: CoachTeamBreakdown[]
 }
 
 interface UserSongStats {
@@ -89,6 +104,8 @@ export function GlobalStatsPage() {
   const { data: allUsers } = useCollection<UserProfile>('users')
   const { data: allSongs } = useCollection<SongRecord>('songs')
   const [tab, setTab] = useState(0)
+  const [expandedPlayer, setExpandedPlayer] = useState<string | null>(null)
+  const [expandedCoach, setExpandedCoach] = useState<string | null>(null)
 
   const isAdmin = profile?.roles.includes(UserRole.ADMIN)
 
@@ -120,23 +137,56 @@ export function GlobalStatsPage() {
   }, [finishedMatches])
 
   const playerStats: PlayerGlobalStats[] = useMemo(() => {
-    const statsMap: Record<string, PlayerGlobalStats> = {}
+    const statsMap: Record<string, {
+      name: string
+      matchesPlayed: number
+      matchesMissed: number
+      matchesBorrowed: number
+      goals: number
+      assists: number
+      keeperMatches: number
+      officialTeams: Record<string, { played: number; missed: number }>
+      borrowedTeams: Record<string, number>
+    }> = {}
 
-    const getOrCreate = (rawName: string): PlayerGlobalStats => {
+    const getOrCreate = (rawName: string) => {
       const name = normalizePlayerName(rawName)
       if (!statsMap[name]) {
-        statsMap[name] = { name, matchesPlayed: 0, matchesMissed: 0, matchesBorrowed: 0, goals: 0, assists: 0, keeperMatches: 0 }
+        statsMap[name] = {
+          name, matchesPlayed: 0, matchesMissed: 0, matchesBorrowed: 0,
+          goals: 0, assists: 0, keeperMatches: 0,
+          officialTeams: {}, borrowedTeams: {},
+        }
       }
       return statsMap[name]
     }
 
     for (const match of finishedMatches) {
+      const team = teamMap[match.teamId]
+      const normalizedTeamNames = team
+        ? new Set((team.playerNames ?? []).map(normalizePlayerName))
+        : new Set<string>()
+
       for (const rawName of match.playerNames ?? []) {
-        getOrCreate(rawName).matchesPlayed++
+        const stat = getOrCreate(rawName)
+        const name = normalizePlayerName(rawName)
+        stat.matchesPlayed++
+
+        if (team) {
+          if (normalizedTeamNames.has(name)) {
+            if (!stat.officialTeams[match.teamId]) stat.officialTeams[match.teamId] = { played: 0, missed: 0 }
+            stat.officialTeams[match.teamId].played++
+          } else {
+            stat.matchesBorrowed++
+            stat.borrowedTeams[match.teamId] = (stat.borrowedTeams[match.teamId] ?? 0) + 1
+          }
+        }
       }
+
       for (const scorer of match.goalScorers ?? []) {
         getOrCreate(scorer.name).goals += scorer.goals
       }
+
       if (match.goalAssists && match.goalAssists.length > 0) {
         for (const assist of match.goalAssists) {
           getOrCreate(assist.name).assists += assist.assists
@@ -151,19 +201,9 @@ export function GlobalStatsPage() {
           }
         }
       }
+
       for (const rawName of match.keeperNames ?? []) {
         getOrCreate(rawName).keeperMatches++
-      }
-
-      const team = teamMap[match.teamId]
-      if (team) {
-        for (const rawName of match.playerNames ?? []) {
-          const name = normalizePlayerName(rawName)
-          const normalizedTeamNames = (team.playerNames ?? []).map(normalizePlayerName)
-          if (!normalizedTeamNames.includes(name)) {
-            statsMap[name].matchesBorrowed++
-          }
-        }
       }
     }
 
@@ -176,6 +216,10 @@ export function GlobalStatsPage() {
           const name = normalizePlayerName(rawName)
           if (statsMap[name] && !presentNormalized.has(name)) {
             statsMap[name].matchesMissed++
+            if (!statsMap[name].officialTeams[team.id]) {
+              statsMap[name].officialTeams[team.id] = { played: 0, missed: 0 }
+            }
+            statsMap[name].officialTeams[team.id].missed++
           }
         }
       }
@@ -183,6 +227,35 @@ export function GlobalStatsPage() {
 
     return Object.values(statsMap)
       .filter((p) => p.matchesPlayed > 0)
+      .map((p): PlayerGlobalStats => ({
+        name: p.name,
+        matchesPlayed: p.matchesPlayed,
+        matchesMissed: p.matchesMissed,
+        matchesBorrowed: p.matchesBorrowed,
+        goals: p.goals,
+        assists: p.assists,
+        keeperMatches: p.keeperMatches,
+        teamBreakdown: [
+          ...Object.entries(p.officialTeams).map(([teamId, counts]) => ({
+            teamId,
+            teamName: teamMap[teamId]?.name ?? 'Ukjent lag',
+            teamType: teamMap[teamId]?.teamType ?? TeamType.SERIE,
+            cupName: teamMap[teamId]?.cupName,
+            matchesPlayed: counts.played,
+            matchesMissed: counts.missed,
+            isBorrowed: false,
+          })),
+          ...Object.entries(p.borrowedTeams).map(([teamId, count]) => ({
+            teamId,
+            teamName: teamMap[teamId]?.name ?? 'Ukjent lag',
+            teamType: teamMap[teamId]?.teamType ?? TeamType.SERIE,
+            cupName: teamMap[teamId]?.cupName,
+            matchesPlayed: count,
+            matchesMissed: 0,
+            isBorrowed: true,
+          })),
+        ],
+      }))
       .sort((a, b) => b.matchesPlayed - a.matchesPlayed)
   }, [finishedMatches, relevantTeams, teamMap, matchesByTeam])
 
@@ -195,18 +268,30 @@ export function GlobalStatsPage() {
     const result: CoachGlobalStats[] = []
 
     for (const name of coachNames) {
-      const matchesAttended = finishedMatches.filter((m) => (m.coachNames ?? []).includes(name)).length
-
+      let matchesAttended = 0
       let matchesMissed = 0
+      const teamBreakdown: CoachTeamBreakdown[] = []
+
       for (const team of relevantTeams) {
         if (!(team.coachNames ?? []).includes(name)) continue
         const teamMatches = matchesByTeam[team.id] ?? []
+        let teamAttended = 0
+        let teamMissed = 0
         for (const match of teamMatches) {
-          if (!(match.coachNames ?? []).includes(name)) matchesMissed++
+          if ((match.coachNames ?? []).includes(name)) {
+            teamAttended++
+          } else {
+            teamMissed++
+          }
+        }
+        matchesAttended += teamAttended
+        matchesMissed += teamMissed
+        if (teamAttended > 0 || teamMissed > 0) {
+          teamBreakdown.push({ teamId: team.id, teamName: team.name, teamType: team.teamType, cupName: team.cupName, matchesAttended: teamAttended, matchesMissed: teamMissed })
         }
       }
 
-      result.push({ name, matchesAttended, matchesMissed })
+      result.push({ name, matchesAttended, matchesMissed, teamBreakdown })
     }
 
     return result
@@ -281,35 +366,110 @@ export function GlobalStatsPage() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {playerStats.map((p, i) => (
-                    <TableRow key={p.name}>
-                      <TableCell>{i + 1}</TableCell>
-                      <TableCell>
-                        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                          {i === 0 && <EmojiEventsRoundedIcon fontSize="small" color="warning" />}
-                          <span>{p.name}</span>
-                        </Stack>
-                      </TableCell>
-                      <TableCell align="right"><strong>{p.matchesPlayed}</strong></TableCell>
-                      <TableCell align="right">
-                        {p.matchesMissed > 0 ? (
-                          <Chip label={p.matchesMissed} size="small" color="warning" variant="outlined" />
-                        ) : '—'}
-                      </TableCell>
-                      <TableCell align="right">
-                        {p.matchesBorrowed > 0 ? (
-                          <Chip label={p.matchesBorrowed} size="small" color="info" variant="outlined" />
-                        ) : '—'}
-                      </TableCell>
-                      <TableCell align="right">{p.goals > 0 ? p.goals : '—'}</TableCell>
-                      <TableCell align="right">{p.assists > 0 ? p.assists : '—'}</TableCell>
-                      <TableCell align="right">
-                        {p.keeperMatches > 0 ? (
-                          <Chip label={p.keeperMatches} size="small" color="secondary" variant="outlined" />
-                        ) : '—'}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {playerStats.map((p, i) => {
+                    const isExpanded = expandedPlayer === p.name
+                    const officialTeams = p.teamBreakdown.filter((t) => !t.isBorrowed)
+                    const borrowedTeams = p.teamBreakdown.filter((t) => t.isBorrowed)
+                    return (
+                      <Fragment key={p.name}>
+                        <TableRow
+                          onClick={() => setExpandedPlayer(isExpanded ? null : p.name)}
+                          sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
+                        >
+                          <TableCell>{i + 1}</TableCell>
+                          <TableCell>
+                            <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
+                              <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                                {i === 0 && <EmojiEventsRoundedIcon fontSize="small" color="warning" />}
+                                <span>{p.name}</span>
+                              </Stack>
+                              <ExpandMoreRoundedIcon
+                                fontSize="small"
+                                color="action"
+                                sx={{
+                                  transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                                  transition: 'transform 0.2s',
+                                }}
+                              />
+                            </Stack>
+                          </TableCell>
+                          <TableCell align="right"><strong>{p.matchesPlayed}</strong></TableCell>
+                          <TableCell align="right">
+                            {p.matchesMissed > 0 ? (
+                              <Chip label={p.matchesMissed} size="small" color="warning" variant="outlined" />
+                            ) : '—'}
+                          </TableCell>
+                          <TableCell align="right">
+                            {p.matchesBorrowed > 0 ? (
+                              <Chip label={p.matchesBorrowed} size="small" color="info" variant="outlined" />
+                            ) : '—'}
+                          </TableCell>
+                          <TableCell align="right">{p.goals > 0 ? p.goals : '—'}</TableCell>
+                          <TableCell align="right">{p.assists > 0 ? p.assists : '—'}</TableCell>
+                          <TableCell align="right">
+                            {p.keeperMatches > 0 ? (
+                              <Chip label={p.keeperMatches} size="small" color="secondary" variant="outlined" />
+                            ) : '—'}
+                          </TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell
+                            colSpan={8}
+                            sx={{ py: 0, ...(isExpanded ? {} : { border: 0 }) }}
+                          >
+                            <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                              <Box sx={{ py: 2, px: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
+                                {officialTeams.length > 0 && (
+                                  <Stack spacing={1} mb={borrowedTeams.length > 0 ? 2 : 0}>
+                                    <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                      Egne lag
+                                    </Typography>
+                                    {officialTeams.map((t) => (
+                                      <Stack key={t.teamId} direction="row" spacing={1} alignItems="center">
+                                        <Box sx={{ flex: 1 }}>
+                                          <Typography variant="body2">{t.teamName}</Typography>
+                                          {t.teamType === TeamType.CUP && t.cupName && (
+                                            <Typography variant="caption" color="text.secondary" fontStyle="italic">{t.cupName}</Typography>
+                                          )}
+                                        </Box>
+                                        <Typography variant="body2" color="text.secondary">{t.matchesPlayed} spilt</Typography>
+                                        {t.matchesMissed > 0 && (
+                                          <Chip label={`${t.matchesMissed} misset`} size="small" color="warning" variant="outlined" />
+                                        )}
+                                      </Stack>
+                                    ))}
+                                  </Stack>
+                                )}
+                                {borrowedTeams.length > 0 && (
+                                  <Stack spacing={1}>
+                                    <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                      Lånt til
+                                    </Typography>
+                                    {borrowedTeams.map((t) => (
+                                      <Stack key={t.teamId} direction="row" spacing={1} alignItems="center">
+                                        <Box sx={{ flex: 1 }}>
+                                          <Typography variant="body2">{t.teamName}</Typography>
+                                          {t.teamType === TeamType.CUP && t.cupName && (
+                                            <Typography variant="caption" color="text.secondary" fontStyle="italic">{t.cupName}</Typography>
+                                          )}
+                                        </Box>
+                                        <Chip
+                                          label={`${t.matchesPlayed} kamp${t.matchesPlayed !== 1 ? 'er' : ''}`}
+                                          size="small"
+                                          color="info"
+                                          variant="outlined"
+                                        />
+                                      </Stack>
+                                    ))}
+                                  </Stack>
+                                )}
+                              </Box>
+                            </Collapse>
+                          </TableCell>
+                        </TableRow>
+                      </Fragment>
+                    )
+                  })}
                 </TableBody>
               </Table>
             </Box>
@@ -332,23 +492,71 @@ export function GlobalStatsPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {coachStats.map((c, i) => (
-                  <TableRow key={c.name}>
-                    <TableCell>{i + 1}</TableCell>
-                    <TableCell>
-                      <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                        {i === 0 && <EmojiEventsRoundedIcon fontSize="small" color="warning" />}
-                        <span>{c.name}</span>
-                      </Stack>
-                    </TableCell>
-                    <TableCell align="right"><strong>{c.matchesAttended}</strong></TableCell>
-                    <TableCell align="right">
-                      {c.matchesMissed > 0 ? (
-                        <Chip label={c.matchesMissed} size="small" color="warning" variant="outlined" />
-                      ) : '—'}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {coachStats.map((c, i) => {
+                  const isExpanded = expandedCoach === c.name
+                  return (
+                    <Fragment key={c.name}>
+                      <TableRow
+                        onClick={() => setExpandedCoach(isExpanded ? null : c.name)}
+                        sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
+                      >
+                        <TableCell>{i + 1}</TableCell>
+                        <TableCell>
+                          <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
+                            <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                              {i === 0 && <EmojiEventsRoundedIcon fontSize="small" color="warning" />}
+                              <span>{c.name}</span>
+                            </Stack>
+                            <ExpandMoreRoundedIcon
+                              fontSize="small"
+                              color="action"
+                              sx={{
+                                transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                                transition: 'transform 0.2s',
+                              }}
+                            />
+                          </Stack>
+                        </TableCell>
+                        <TableCell align="right"><strong>{c.matchesAttended}</strong></TableCell>
+                        <TableCell align="right">
+                          {c.matchesMissed > 0 ? (
+                            <Chip label={c.matchesMissed} size="small" color="warning" variant="outlined" />
+                          ) : '—'}
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell
+                          colSpan={4}
+                          sx={{ py: 0, ...(isExpanded ? {} : { border: 0 }) }}
+                        >
+                          <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                            <Box sx={{ py: 2, px: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
+                              <Stack spacing={1}>
+                                <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                  Per lag
+                                </Typography>
+                                {c.teamBreakdown.map((t) => (
+                                  <Stack key={t.teamId} direction="row" spacing={1} alignItems="center">
+                                    <Box sx={{ flex: 1 }}>
+                                      <Typography variant="body2">{t.teamName}</Typography>
+                                      {t.teamType === TeamType.CUP && t.cupName && (
+                                        <Typography variant="caption" color="text.secondary" fontStyle="italic">{t.cupName}</Typography>
+                                      )}
+                                    </Box>
+                                    <Typography variant="body2" color="text.secondary">{t.matchesAttended} deltatt</Typography>
+                                    {t.matchesMissed > 0 && (
+                                      <Chip label={`${t.matchesMissed} misset`} size="small" color="warning" variant="outlined" />
+                                    )}
+                                  </Stack>
+                                ))}
+                              </Stack>
+                            </Box>
+                          </Collapse>
+                        </TableCell>
+                      </TableRow>
+                    </Fragment>
+                  )
+                })}
               </TableBody>
             </Table>
           )}
