@@ -421,15 +421,15 @@ export function GlobalStatsPage() {
                               <Box sx={{ py: 2, px: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
                                 {officialTeams.length > 0 && (
                                   <Stack spacing={1} mb={borrowedTeams.length > 0 ? 2 : 0}>
-                                    <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                    <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 600 }}>
                                       Egne lag
                                     </Typography>
                                     {officialTeams.map((t) => (
-                                      <Stack key={t.teamId} direction="row" spacing={1} alignItems="center">
+                                      <Stack key={t.teamId} direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                                         <Box sx={{ flex: 1 }}>
                                           <Typography variant="body2">{t.teamName}</Typography>
                                           {t.teamType === TeamType.CUP && t.cupName && (
-                                            <Typography variant="caption" color="text.secondary" fontStyle="italic">{t.cupName}</Typography>
+                                            <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>{t.cupName}</Typography>
                                           )}
                                         </Box>
                                         <Typography variant="body2" color="text.secondary">{t.matchesPlayed} spilt</Typography>
@@ -442,15 +442,15 @@ export function GlobalStatsPage() {
                                 )}
                                 {borrowedTeams.length > 0 && (
                                   <Stack spacing={1}>
-                                    <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                    <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 600 }}>
                                       Lånt til
                                     </Typography>
                                     {borrowedTeams.map((t) => (
-                                      <Stack key={t.teamId} direction="row" spacing={1} alignItems="center">
+                                      <Stack key={t.teamId} direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                                         <Box sx={{ flex: 1 }}>
                                           <Typography variant="body2">{t.teamName}</Typography>
                                           {t.teamType === TeamType.CUP && t.cupName && (
-                                            <Typography variant="caption" color="text.secondary" fontStyle="italic">{t.cupName}</Typography>
+                                            <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>{t.cupName}</Typography>
                                           )}
                                         </Box>
                                         <Chip
@@ -532,15 +532,15 @@ export function GlobalStatsPage() {
                           <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                             <Box sx={{ py: 2, px: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
                               <Stack spacing={1}>
-                                <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 600 }}>
                                   Per lag
                                 </Typography>
                                 {c.teamBreakdown.map((t) => (
-                                  <Stack key={t.teamId} direction="row" spacing={1} alignItems="center">
+                                  <Stack key={t.teamId} direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                                     <Box sx={{ flex: 1 }}>
                                       <Typography variant="body2">{t.teamName}</Typography>
                                       {t.teamType === TeamType.CUP && t.cupName && (
-                                        <Typography variant="caption" color="text.secondary" fontStyle="italic">{t.cupName}</Typography>
+                                        <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>{t.cupName}</Typography>
                                       )}
                                     </Box>
                                     <Typography variant="body2" color="text.secondary">{t.matchesAttended} deltatt</Typography>
