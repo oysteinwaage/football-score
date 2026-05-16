@@ -420,7 +420,7 @@ export function GlobalStatsPage() {
                             <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                               <Box sx={{ py: 2, px: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
                                 {officialTeams.length > 0 && (
-                                  <Stack spacing={1} mb={borrowedTeams.length > 0 ? 2 : 0}>
+                                  <Stack spacing={1} sx={{ mb: borrowedTeams.length > 0 ? 2 : 0 }}>
                                     <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 600 }}>
                                       Egne lag
                                     </Typography>
