@@ -114,6 +114,7 @@ export function normalizeUserProfile(value: unknown, id: string): UserProfile {
     songPlays: typeof source.songPlays === 'object' && source.songPlays !== null
       ? Object.fromEntries(Object.entries(source.songPlays).filter(([, v]) => typeof v === 'number') as [string, number][])
       : undefined,
+    iosInstallBannerCount: typeof source.iosInstallBannerCount === 'number' ? source.iosInstallBannerCount : 0,
     createdAt: typeof source.createdAt === 'string' ? source.createdAt : new Date(0).toISOString(),
     updatedAt: typeof source.updatedAt === 'string' ? source.updatedAt : new Date(0).toISOString(),
   }

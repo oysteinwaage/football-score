@@ -77,6 +77,7 @@ export interface UserProfile {
   declinedPhotoUrl?: boolean
   showScorerInEvents?: boolean
   songPlays?: Record<string, number>
+  iosInstallBannerCount?: number
   createdAt: string
   updatedAt: string
 }

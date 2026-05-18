@@ -44,6 +44,7 @@ import { Link as RouterLink, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useCollection } from '../hooks/useRealtimeDatabase'
 import { TeamRecord, TeamType, UserRole } from '../types/domain'
+import { InstallBanner } from './InstallBanner'
 
 const drawerWidth = 280
 
@@ -402,6 +403,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       <Box component="main" sx={{ flex: 1, width: '100%', p: { xs: 2, md: 4 }, mt: 9 }}>
         {children}
       </Box>
+
+      <InstallBanner />
     </Box>
   )
 }

@@ -72,6 +72,13 @@ export async function incrementUserSongPlay(userId: string, teamId: string): Pro
   })
 }
 
+export async function incrementIosInstallBannerCount(userId: string): Promise<void> {
+  await update(ref(requireDatabase(), `users/${userId}`), {
+    iosInstallBannerCount: increment(1),
+    updatedAt: new Date().toISOString(),
+  })
+}
+
 export async function deleteUserProfile(userId: string): Promise<void> {
   await remove(ref(requireDatabase(), `users/${userId}`))
 }
