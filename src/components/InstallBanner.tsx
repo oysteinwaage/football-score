@@ -68,7 +68,7 @@ export function InstallBanner() {
         />
 
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography variant="caption" fontWeight={700} color="text.primary" display="block" lineHeight={1.3}>
+          <Typography variant="caption" color="text.primary" sx={{ fontWeight: 700, display: 'block', lineHeight: 1.3 }}>
             iPhone-tips: Legg til som app på Hjem-skjerm
           </Typography>
           <Box component="ol" sx={{ m: 0, mt: 0.5, p: 0, listStyle: 'none' }}>
