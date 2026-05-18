@@ -2,7 +2,7 @@ import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
 import IosShareRoundedIcon from '@mui/icons-material/IosShareRounded'
 import AddBoxRoundedIcon from '@mui/icons-material/AddBoxRounded'
 import { Box, IconButton, Paper, Typography } from '@mui/material'
-import { useEffect, useRef, useState } from 'react'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
 
 import { useAuth } from '../context/AuthContext'
 import { incrementIosInstallBannerCount } from '../services/userService'
@@ -72,24 +72,17 @@ export function InstallBanner() {
             iPhone-tips: Legg til som app på Hjem-skjerm
           </Typography>
           <Box component="ol" sx={{ m: 0, mt: 0.5, p: 0, listStyle: 'none' }}>
-            {[
+            {([
               <>Trykk <strong>«···»</strong> nederst til høyre i Safari</>,
               <>Velg <strong>Del</strong> <IosShareRoundedIcon sx={{ fontSize: 12, verticalAlign: 'middle', mb: '2px' }} /></>,
               <>Scroll ned og trykk <AddBoxRoundedIcon sx={{ fontSize: 12, verticalAlign: 'middle', mb: '2px' }} /> <strong>«Legg til på Hjem-skjerm»</strong></>,
-            ].map((step, i) => (
-              <Typography
-                key={i}
-                component="li"
-                variant="caption"
-                color="text.secondary"
-                display="block"
-                lineHeight={1.4}
-              >
-                <Typography component="span" variant="caption" fontWeight={600} color="text.primary">
-                  {i + 1}.{' '}
+            ] as ReactNode[]).map((step, i) => (
+              <Box key={i} component="li" sx={{ display: 'block', lineHeight: 1.4 }}>
+                <Typography variant="caption" color="text.secondary">
+                  <Box component="span" sx={{ fontWeight: 600, color: 'text.primary' }}>{i + 1}.{' '}</Box>
+                  {step}
                 </Typography>
-                {step}
-              </Typography>
+              </Box>
             ))}
           </Box>
         </Box>
