@@ -333,6 +333,10 @@ export function MatchPage() {
   const isHalfTime = match.clock.status === MatchStatus.HALF_TIME
   const isFinished = match.clock.status === MatchStatus.FINISHED
   const isPreMatch = isScheduled && Date.now() >= new Date(match.startsAt).getTime() - 30 * 60 * 1000
+  const matchEndedEvent = match.events.find((e) => e.type === MatchEventType.MATCH_ENDED)
+  const isWithin30MinAfterFinish = isFinished && matchEndedEvent
+    ? Date.now() - new Date(matchEndedEvent.createdAt).getTime() < 30 * 60 * 1000
+    : false
   const isOvertime =
     ((isFirstHalf || isHalfTime) && clockSeconds > halfDuration) ||
     clockSeconds > fullDuration
@@ -538,7 +542,7 @@ export function MatchPage() {
         </Card>
       )}
 
-      {canManage && (isPreMatch || isFirstHalf || isHalfTime || match.clock.status === MatchStatus.SECOND_HALF) && (
+      {canManage && (isPreMatch || isFirstHalf || isHalfTime || match.clock.status === MatchStatus.SECOND_HALF || isWithin30MinAfterFinish) && (
         <Card>
           <CardContent>
             <Stack spacing={2} direction="row" sx={{ alignItems: 'flex-start' }}>
