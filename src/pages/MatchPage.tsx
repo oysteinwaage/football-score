@@ -90,6 +90,9 @@ export function MatchPage() {
   const [endMatchNote, setEndMatchNote] = useState('')
   const [endMatchKeepers, setEndMatchKeepers] = useState<string[]>([])
   const [correctionMode, setCorrectionMode] = useState(false)
+  const [editingGoalEvent, setEditingGoalEvent] = useState<MatchEvent | null>(null)
+  const [editingInfoEvent, setEditingInfoEvent] = useState<MatchEvent | null>(null)
+  const [editingInfoText, setEditingInfoText] = useState('')
   const [editMatchOpen, setEditMatchOpen] = useState(false)
   const [editHomeTeam, setEditHomeTeam] = useState('')
   const [editAwayTeam, setEditAwayTeam] = useState('')
@@ -262,6 +265,16 @@ export function MatchPage() {
     await persistMatch(nextMatch, 'Målet er registrert.')
   }
 
+  const confirmAssist = (assistName?: string) => {
+    setAssistModalOpen(false)
+    if (editingGoalEvent) {
+      void updateGoalEvent(editingGoalEvent, pendingScorer, assistName)
+      setEditingGoalEvent(null)
+    } else {
+      void registerGoal(ourSide, pendingScorer, assistName)
+    }
+  }
+
   const addInfoEvent = async () => {
     const trimmed = infoNote.trim()
     if (!trimmed) return
@@ -290,6 +303,28 @@ export function MatchPage() {
     )
   }
 
+  const updateGoalEvent = async (event: MatchEvent, scorerName: string, assistName?: string) => {
+    const side: 'home' | 'away' = event.type === MatchEventType.GOAL_HOME ? 'home' : 'away'
+    const isOpponent = side === opponentSide
+    const hasScorer = scorerName.trim().length > 0
+    const scorer = scorerName.trim() || 'Ukjent spiller'
+    const assistSuffix = !isOpponent && assistName ? ` (assist: ${assistName})` : ''
+    const teamName = side === 'home' ? match.homeTeam : match.awayTeam
+    const score = event.scoreAfter ?? match.score
+    const text = isOpponent
+      ? `${teamName} scoret. Stillingen er nå ${score.home} - ${score.away}.`
+      : hasScorer
+        ? `Mål: ${scorer}${assistSuffix} for ${teamName} 🎉 Stillingen er nå ${score.home} - ${score.away}.`
+        : `${teamName} scoret 🎉 Stillingen er nå ${score.home} - ${score.away}.`
+    const storedScorerName = isOpponent || !hasScorer ? undefined : scorer
+    const storedAssistName = !isOpponent && assistName ? assistName : undefined
+    const updatedEvent: MatchEvent = { ...event, text, scorerName: storedScorerName, assistName: storedAssistName, corrected: true }
+    const nextEvents = match.events.map((e) => (e.id === event.id ? updatedEvent : e))
+    const ourGoalType = ourSide === 'home' ? MatchEventType.GOAL_HOME : MatchEventType.GOAL_AWAY
+    const { goalScorers, goalAssists } = computeGoalStats(nextEvents, ourGoalType)
+    await persistMatch({ ...match, events: nextEvents, goalScorers, goalAssists }, 'Målhendelsen er oppdatert.')
+  }
+
   const removeGoalEvent = async (eventId: string) => {
     const nextEvents = match.events.filter((e) => e.id !== eventId)
     const nextScore = {
@@ -304,6 +339,15 @@ export function MatchPage() {
   const removeInfoEvent = async (eventId: string) => {
     const nextEvents = match.events.filter((e) => e.id !== eventId)
     await persistMatch({ ...match, events: nextEvents }, 'Hendelsen er fjernet.')
+  }
+
+  const updateInfoEvent = async () => {
+    if (!editingInfoEvent || !editingInfoText.trim()) return
+    const updatedEvent: MatchEvent = { ...editingInfoEvent, text: editingInfoText.trim() }
+    const nextEvents = match.events.map((e) => (e.id === editingInfoEvent.id ? updatedEvent : e))
+    await persistMatch({ ...match, events: nextEvents }, 'Kommentaren er oppdatert.')
+    setEditingInfoEvent(null)
+    setEditingInfoText('')
   }
 
   const matchPlayerNames = match.playerNames ?? []
@@ -335,7 +379,7 @@ export function MatchPage() {
   const isPreMatch = isScheduled && Date.now() >= new Date(match.startsAt).getTime() - 30 * 60 * 1000
   const matchEndedEvent = match.events.find((e) => e.type === MatchEventType.MATCH_ENDED)
   const isWithin30MinAfterFinish = isFinished && matchEndedEvent
-    ? Date.now() - new Date(matchEndedEvent.createdAt).getTime() < 30 * 60 * 1000
+    ? Date.now() - new Date(matchEndedEvent.createdAt).getTime() < 60 * 60 * 1000
     : false
   const isOvertime =
     ((isFirstHalf || isHalfTime) && clockSeconds > halfDuration) ||
@@ -542,7 +586,7 @@ export function MatchPage() {
         </Card>
       )}
 
-      {canManage && (isPreMatch || isFirstHalf || isHalfTime || match.clock.status === MatchStatus.SECOND_HALF || isWithin30MinAfterFinish) && (
+      {canManage && (isPreMatch || isFirstHalf || isHalfTime || match.clock.status === MatchStatus.SECOND_HALF || isWithin30MinAfterFinish || correctionMode) && (
         <Card>
           <CardContent>
             <Stack spacing={2} direction="row" sx={{ alignItems: 'flex-start' }}>
@@ -573,6 +617,9 @@ export function MatchPage() {
                 {sortedEvents.map((event) => {
                   const isGoal = event.type === MatchEventType.GOAL_HOME || event.type === MatchEventType.GOAL_AWAY
                   const isInfo = event.type === MatchEventType.INFO
+                  const isOurGoal = event.type === (ourSide === 'home' ? MatchEventType.GOAL_HOME : MatchEventType.GOAL_AWAY)
+                  const canEditGoal = canManage && correctionMode && isOurGoal
+                  const canEditInfo = canManage && correctionMode && isInfo
                   const eventIcon = {
                     [MatchEventType.GOAL_HOME]: <SportsSoccerRoundedIcon color={ourSide === 'home' ? 'success' : 'error'} />,
                     [MatchEventType.GOAL_AWAY]: <SportsSoccerRoundedIcon color={ourSide === 'away' ? 'success' : 'error'} />,
@@ -583,7 +630,7 @@ export function MatchPage() {
                     [MatchEventType.INFO]: <ChatBubbleOutlineRoundedIcon color="action" />,
                   }[event.type]
                   return (
-                    <ListItem key={event.id} divider disableGutters sx={{ pr: canManage && (isGoal || isInfo) && (!isFinished || correctionMode) ? 6 : 0 }}>
+                    <ListItem key={event.id} divider disableGutters sx={{ pr: (canEditGoal || canEditInfo) ? 11 : canManage && (isGoal || isInfo) && (!isFinished || correctionMode) ? 6 : 0 }}>
                       <ListItemIcon sx={{ minWidth: 40 }}>{eventIcon}</ListItemIcon>
                       <ListItemText
                         primary={
@@ -604,16 +651,46 @@ export function MatchPage() {
                       />
                       {canManage && (isGoal || isInfo) && (!isFinished || correctionMode) && (
                         <ListItemSecondaryAction>
-                          <Tooltip title={isGoal ? 'Fjern målhendelse' : 'Fjern hendelse'}>
-                            <IconButton
-                              edge="end"
-                              size="small"
-                              color="error"
-                              onClick={() => void (isGoal ? removeGoalEvent(event.id) : removeInfoEvent(event.id))}
-                            >
-                              <DeleteRoundedIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
+                          <Stack direction="row" spacing={0}>
+                            {canEditGoal && (
+                              <Tooltip title="Endre målscorer / assist">
+                                <IconButton
+                                  size="small"
+                                  color="primary"
+                                  onClick={() => {
+                                    setEditingGoalEvent(event)
+                                    setScorerModalOpen(true)
+                                  }}
+                                >
+                                  <EditRoundedIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                            {canEditInfo && (
+                              <Tooltip title="Endre kommentar">
+                                <IconButton
+                                  size="small"
+                                  color="primary"
+                                  onClick={() => {
+                                    setEditingInfoEvent(event)
+                                    setEditingInfoText(event.text)
+                                  }}
+                                >
+                                  <EditRoundedIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                            <Tooltip title={isGoal ? 'Fjern målhendelse' : 'Fjern hendelse'}>
+                              <IconButton
+                                edge="end"
+                                size="small"
+                                color="error"
+                                onClick={() => void (isGoal ? removeGoalEvent(event.id) : removeInfoEvent(event.id))}
+                              >
+                                <DeleteRoundedIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Stack>
                         </ListItemSecondaryAction>
                       )}
                     </ListItem>
@@ -713,8 +790,8 @@ export function MatchPage() {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={scorerModalOpen} onClose={() => setScorerModalOpen(false)} fullWidth maxWidth="xs">
-        <DialogTitle>Hvem scoret for {ourTeamName}?</DialogTitle>
+      <Dialog open={scorerModalOpen} onClose={() => { setScorerModalOpen(false); setEditingGoalEvent(null) }} fullWidth maxWidth="xs">
+        <DialogTitle>{editingGoalEvent ? `Endre målscorer for ${ourTeamName}` : `Hvem scoret for ${ourTeamName}?`}</DialogTitle>
         <DialogContent>
           <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', pt: 1 }}>
             {matchPlayerNames.map((player) => (
@@ -740,11 +817,11 @@ export function MatchPage() {
           </Stack>
         </DialogContent>
         <DialogActions sx={{ p: 3, pt: 0 }}>
-          <Button onClick={() => setScorerModalOpen(false)}>Avbryt</Button>
+          <Button onClick={() => { setScorerModalOpen(false); setEditingGoalEvent(null) }}>Avbryt</Button>
         </DialogActions>
       </Dialog>
 
-      <Dialog open={assistModalOpen} onClose={() => { setAssistModalOpen(false); void registerGoal(ourSide, pendingScorer) }} fullWidth maxWidth="xs">
+      <Dialog open={assistModalOpen} onClose={() => confirmAssist()} fullWidth maxWidth="xs">
         <DialogTitle>Hvem hadde assist?</DialogTitle>
         <DialogContent>
           <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', pt: 1 }}>
@@ -752,24 +829,39 @@ export function MatchPage() {
               <Chip
                 key={player}
                 label={player}
-                onClick={() => {
-                  setAssistModalOpen(false)
-                  void registerGoal(ourSide, pendingScorer, player)
-                }}
+                onClick={() => confirmAssist(player)}
               />
             ))}
             <Chip
               label="Ingen assist"
               variant="outlined"
-              onClick={() => {
-                setAssistModalOpen(false)
-                void registerGoal(ourSide, pendingScorer)
-              }}
+              onClick={() => confirmAssist()}
             />
           </Stack>
         </DialogContent>
         <DialogActions sx={{ p: 3, pt: 0 }}>
-          <Button onClick={() => { setAssistModalOpen(false); void registerGoal(ourSide, pendingScorer) }}>Hopp over</Button>
+          <Button onClick={() => confirmAssist()}>Hopp over</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={Boolean(editingInfoEvent)} onClose={() => setEditingInfoEvent(null)} fullWidth maxWidth="sm">
+        <DialogTitle>Endre kommentar</DialogTitle>
+        <DialogContent>
+          <TextField
+            value={editingInfoText}
+            onChange={(e) => setEditingInfoText(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && void updateInfoEvent()}
+            fullWidth
+            multiline
+            rows={2}
+            sx={{ mt: 1 }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 3, pt: 0 }}>
+          <Button onClick={() => setEditingInfoEvent(null)}>Avbryt</Button>
+          <Button variant="contained" onClick={() => void updateInfoEvent()} disabled={!editingInfoText.trim()}>
+            Lagre
+          </Button>
         </DialogActions>
       </Dialog>
     </Stack>
