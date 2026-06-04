@@ -24,7 +24,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom'
 
 import { ManualMatchDialog, ManualMatchValues } from '../components/ManualMatchDialog'
@@ -69,6 +69,7 @@ export function TeamPage() {
   const [photoUploading, setPhotoUploading] = useState(false)
   const [photoDeleting, setPhotoDeleting] = useState(false)
   const [editingPhoto, setEditingPhoto] = useState(false)
+  const photoInputRef = useRef<HTMLInputElement>(null)
 
   const canAddMatch = Boolean(profile?.roles.some((role) => role === UserRole.ADMIN || role === UserRole.TRENER))
   const canEditRoster = Boolean(profile?.roles.some((role) => role === UserRole.ADMIN || role === UserRole.TRENER))
@@ -513,9 +514,18 @@ export function TeamPage() {
                 <PhotoCameraRoundedIcon color="primary" fontSize="small" />
                 <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Lagbilde</Typography>
                 {canEditRoster && (
-                  <IconButton size="small" sx={{ ml: 'auto' }} onClick={() => setEditingPhoto(true)}>
-                    <EditRoundedIcon fontSize="small" />
-                  </IconButton>
+                  <>
+                    <input
+                      ref={photoInputRef}
+                      type="file"
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) void handlePhotoUpload(f); if (photoInputRef.current) photoInputRef.current.value = '' }}
+                    />
+                    <IconButton size="small" sx={{ ml: 'auto' }} onClick={() => team.photoUrl ? setEditingPhoto(true) : photoInputRef.current?.click()}>
+                      <EditRoundedIcon fontSize="small" />
+                    </IconButton>
+                  </>
                 )}
               </Stack>
 

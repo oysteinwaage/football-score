@@ -33,7 +33,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link as RouterLink, useParams } from 'react-router-dom'
 
 import { PhotoEditDialog } from '../components/PhotoEditDialog'
@@ -106,6 +106,7 @@ export function MatchPage() {
   const [photoUploading, setPhotoUploading] = useState(false)
   const [photoDeleting, setPhotoDeleting] = useState(false)
   const [editingPhoto, setEditingPhoto] = useState(false)
+  const photoInputRef = useRef<HTMLInputElement>(null)
 
   const canManage = Boolean(profile?.roles.some((role) => role === UserRole.ADMIN || role === UserRole.KAMPLEDER || role === UserRole.TRENER))
   const canEditRoster = Boolean(profile?.roles.some((role) => role === UserRole.ADMIN || role === UserRole.TRENER))
@@ -465,9 +466,18 @@ export function MatchPage() {
                   <PhotoCameraRoundedIcon color="primary" fontSize="small" />
                   <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Lagbilde</Typography>
                   {isTrenerOrAdmin && (
-                    <IconButton size="small" sx={{ ml: 'auto' }} onClick={() => setEditingPhoto(true)}>
-                      <EditRoundedIcon fontSize="small" />
-                    </IconButton>
+                    <>
+                      <input
+                        ref={photoInputRef}
+                        type="file"
+                        accept="image/*"
+                        style={{ display: 'none' }}
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleMatchPhotoUpload(f); if (photoInputRef.current) photoInputRef.current.value = '' }}
+                      />
+                      <IconButton size="small" sx={{ ml: 'auto' }} onClick={() => match.photoUrl ? setEditingPhoto(true) : photoInputRef.current?.click()}>
+                        <EditRoundedIcon fontSize="small" />
+                      </IconButton>
+                    </>
                   )}
                 </Stack>
 
