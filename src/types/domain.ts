@@ -124,6 +124,7 @@ export interface MatchRecord {
   updatedAt: string
   externalSourceId?: string
   importedFromUrl?: string
+  photoUrl?: string
 }
 
 export interface SongRecord {

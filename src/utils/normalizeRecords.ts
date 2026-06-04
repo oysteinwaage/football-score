@@ -169,6 +169,7 @@ export function normalizeMatchRecord(value: unknown, id: string): MatchRecord {
     updatedAt: typeof source.updatedAt === 'string' ? source.updatedAt : new Date(0).toISOString(),
     externalSourceId: typeof source.externalSourceId === 'string' ? source.externalSourceId : undefined,
     importedFromUrl: typeof source.importedFromUrl === 'string' ? source.importedFromUrl : undefined,
+    photoUrl: typeof source.photoUrl === 'string' ? source.photoUrl : undefined,
   }
 }
 

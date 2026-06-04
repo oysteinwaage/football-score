@@ -1,4 +1,5 @@
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
+import PhotoCameraRoundedIcon from '@mui/icons-material/PhotoCameraRounded'
 import ChatBubbleOutlineRoundedIcon from '@mui/icons-material/ChatBubbleOutlineRounded'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
@@ -9,6 +10,7 @@ import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded'
 import StopCircleRoundedIcon from '@mui/icons-material/StopCircleRounded'
 import {
   Alert,
+  Box,
   Button,
   Card,
   CardContent,
@@ -34,10 +36,11 @@ import {
 import { useEffect, useMemo, useState } from 'react'
 import { Link as RouterLink, useParams } from 'react-router-dom'
 
+import { PhotoEditDialog } from '../components/PhotoEditDialog'
 import { RosterCard } from '../components/RosterCard'
 import { useAuth } from '../context/AuthContext'
 import { useDocument } from '../hooks/useRealtimeDatabase'
-import { updateMatch } from '../services/matchService'
+import { deleteMatchPhoto, updateMatch, uploadMatchPhoto } from '../services/matchService'
 import { GoalAssist, GoalScorer, MatchEvent, MatchEventType, MatchRecord, MatchStatus, TeamRecord, UserRole } from '../types/domain'
 import { formatMatchTime, getLiveElapsedSeconds } from '../utils/matchClock'
 
@@ -100,6 +103,9 @@ export function MatchPage() {
   const [editLocation, setEditLocation] = useState('')
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [photoUploading, setPhotoUploading] = useState(false)
+  const [photoDeleting, setPhotoDeleting] = useState(false)
+  const [editingPhoto, setEditingPhoto] = useState(false)
 
   const canManage = Boolean(profile?.roles.some((role) => role === UserRole.ADMIN || role === UserRole.KAMPLEDER || role === UserRole.TRENER))
   const canEditRoster = Boolean(profile?.roles.some((role) => role === UserRole.ADMIN || role === UserRole.TRENER))
@@ -350,6 +356,32 @@ export function MatchPage() {
     setEditingInfoText('')
   }
 
+  const handleMatchPhotoUpload = async (file: File) => {
+    setPhotoUploading(true)
+    setErrorMessage(null)
+    try {
+      await uploadMatchPhoto(matchId, file)
+      setEditingPhoto(false)
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Kunne ikke laste opp bildet.')
+    } finally {
+      setPhotoUploading(false)
+    }
+  }
+
+  const handleDeleteMatchPhoto = async () => {
+    setPhotoDeleting(true)
+    setErrorMessage(null)
+    try {
+      await deleteMatchPhoto(matchId)
+      setEditingPhoto(false)
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Kunne ikke slette bildet.')
+    } finally {
+      setPhotoDeleting(false)
+    }
+  }
+
   const matchPlayerNames = match.playerNames ?? []
   const matchCoachNames = match.coachNames ?? []
 
@@ -426,6 +458,29 @@ export function MatchPage() {
               {isOvertime && !isHalfTime && <Chip label="Overtid" color="error" />}
               {isHalfTime && <Chip label="Pause" color="warning" />}
             </Stack>
+
+            {(match.photoUrl || isTrenerOrAdmin) && (
+              <Stack spacing={1}>
+                <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                  <PhotoCameraRoundedIcon color="primary" fontSize="small" />
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Lagbilde</Typography>
+                  {isTrenerOrAdmin && (
+                    <IconButton size="small" sx={{ ml: 'auto' }} onClick={() => setEditingPhoto(true)}>
+                      <EditRoundedIcon fontSize="small" />
+                    </IconButton>
+                  )}
+                </Stack>
+
+                {match.photoUrl && (
+                  <Box
+                    component="img"
+                    src={match.photoUrl}
+                    alt="Lagbilde"
+                    sx={{ width: '100%', maxWidth: 400, borderRadius: 2, objectFit: 'cover' }}
+                  />
+                )}
+              </Stack>
+            )}
           </Stack>
         </CardContent>
       </Card>
@@ -864,6 +919,16 @@ export function MatchPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <PhotoEditDialog
+        open={editingPhoto}
+        hasPhoto={Boolean(match.photoUrl)}
+        uploading={photoUploading}
+        deleting={photoDeleting}
+        onClose={() => setEditingPhoto(false)}
+        onUpload={(file) => { void handleMatchPhotoUpload(file) }}
+        onDelete={() => { void handleDeleteMatchPhoto() }}
+      />
     </Stack>
   )
 }

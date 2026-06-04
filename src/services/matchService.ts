@@ -1,8 +1,10 @@
 import { get, push, ref, remove, set, update } from 'firebase/database'
+import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage'
 
-import { database, firebaseConfigError } from '../firebase/config'
+import { database, firebaseConfigError, storage } from '../firebase/config'
 import { ImportedFixture, MatchRecord, MatchStatus, TeamRecord } from '../types/domain'
 import { addMatchReferenceToTeam, removeMatchReferenceFromTeam } from './teamService'
+import { compressImage } from '../utils/compressImage'
 
 function requireDatabase() {
   if (!database) {
@@ -127,4 +129,32 @@ export async function importFixtures(
   }
 
   return createdCount
+}
+
+
+export async function uploadMatchPhoto(matchId: string, file: File): Promise<string> {
+  if (!storage) throw new Error(firebaseConfigError ?? 'Firebase er ikke konfigurert.')
+  const db = requireDatabase()
+
+  const compressed = await compressImage(file)
+  const fileRef = storageRef(storage, `matches/${matchId}/matchPhoto`)
+  await uploadBytes(fileRef, compressed, { contentType: 'image/jpeg' })
+  const photoUrl = await getDownloadURL(fileRef)
+
+  await update(ref(db, `matches/${matchId}`), { photoUrl, updatedAt: new Date().toISOString() })
+  return photoUrl
+}
+
+export async function deleteMatchPhoto(matchId: string): Promise<void> {
+  if (!storage) throw new Error(firebaseConfigError ?? 'Firebase er ikke konfigurert.')
+  const db = requireDatabase()
+
+  const fileRef = storageRef(storage, `matches/${matchId}/matchPhoto`)
+  try {
+    await deleteObject(fileRef)
+  } catch {
+    // Filen finnes ikke i Storage — fortsett uansett
+  }
+
+  await update(ref(db, `matches/${matchId}`), { photoUrl: null, updatedAt: new Date().toISOString() })
 }
