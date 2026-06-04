@@ -56,8 +56,6 @@ export function StatsPage() {
   const [selectedTeamId, setSelectedTeamId] = useState<string>('')
   const navigate = useNavigate()
 
-  const isAdmin = profile?.roles.includes(UserRole.ADMIN)
-
   const canView = profile?.roles.some((r) => r === UserRole.ADMIN || r === UserRole.STATS)
   if (!canView) {
     return <Alert severity="error">Du har ikke tilgang til denne siden bror.</Alert>
@@ -179,7 +177,7 @@ export function StatsPage() {
     <Stack spacing={3}>
       <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
         <Typography variant="h4">Statistikk</Typography>
-        {isAdmin && (
+        {canView && (
           <Button
             variant="outlined"
             startIcon={<PublicRoundedIcon />}
