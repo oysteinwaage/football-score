@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app'
 import { getAuth } from 'firebase/auth'
 import { getDatabase } from 'firebase/database'
+import { getStorage } from 'firebase/storage'
 import { getAnalytics, isSupported } from 'firebase/analytics'
 
 const firebaseConfig = {
@@ -36,6 +37,7 @@ export const firebaseConfigError = isFirebaseConfigured
 export const firebaseApp = isFirebaseConfigured ? initializeApp(firebaseConfig) : null
 export const auth = firebaseApp ? getAuth(firebaseApp) : null
 export const database = firebaseApp ? getDatabase(firebaseApp) : null
+export const storage = firebaseApp ? getStorage(firebaseApp) : null
 
 if (firebaseApp && typeof window !== 'undefined' && firebaseConfig.measurementId) {
   void isSupported().then((supported) => {

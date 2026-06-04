@@ -90,6 +90,7 @@ export interface TeamRecord {
   playerNames: string[]
   coachNames: string[]
   matchIds: string[]
+  photoUrl?: string
   songUrl?: string
   songTitle?: string
   songPlayCount?: number

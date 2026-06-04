@@ -131,6 +131,7 @@ export function normalizeTeamRecord(value: unknown, id: string): TeamRecord {
     playerNames: toStringArray(source.playerNames),
     coachNames: toStringArray(source.coachNames),
     matchIds: toStringArray(source.matchIds),
+    photoUrl: typeof source.photoUrl === 'string' ? source.photoUrl : undefined,
     songUrl: typeof source.songUrl === 'string' ? source.songUrl : undefined,
     songTitle: typeof source.songTitle === 'string' ? source.songTitle : undefined,
     songPlayCount: typeof source.songPlayCount === 'number' ? source.songPlayCount : undefined,

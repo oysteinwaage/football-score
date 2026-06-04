@@ -6,12 +6,14 @@ import CloudDownloadRoundedIcon from '@mui/icons-material/CloudDownloadRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import MusicNoteRoundedIcon from '@mui/icons-material/MusicNoteRounded'
+import PhotoCameraRoundedIcon from '@mui/icons-material/PhotoCameraRounded'
 import {
   Alert,
   Box,
   Button,
   Card,
   CardContent,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -23,7 +25,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { useMemo, useState } from 'react'
+import { useRef, useMemo, useState } from 'react'
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom'
 
 import { ManualMatchDialog, ManualMatchValues } from '../components/ManualMatchDialog'
@@ -32,7 +34,7 @@ import { useAuth } from '../context/AuthContext'
 import { useCollection, useDocument } from '../hooks/useRealtimeDatabase'
 import { fetchFotballCalendar } from '../services/fotballCalendar'
 import { createMatch, deleteMatch, importFixtures, updateMatch } from '../services/matchService'
-import { deleteTeam, incrementTeamSongPlayCount, retireTeam, updateTeamHalfDuration, updateTeamName, updateTeamRoster, updateTeamSong } from '../services/teamService'
+import { deleteTeam, deleteTeamPhoto, incrementTeamSongPlayCount, retireTeam, updateTeamHalfDuration, updateTeamName, updateTeamRoster, updateTeamSong, uploadTeamPhoto } from '../services/teamService'
 import { incrementUserSongPlay } from '../services/userService'
 import { MatchEventType, MatchRecord, MatchStatus, TeamRecord, UserRole } from '../types/domain'
 import { getMatchOutcomeBackground, getMatchOutcomeForTeam } from '../utils/matchCardColors'
@@ -64,6 +66,10 @@ export function TeamPage() {
   const [editingHalfDuration, setEditingHalfDuration] = useState(false)
   const [halfDurationValue, setHalfDurationValue] = useState('')
   const [halfDurationSaving, setHalfDurationSaving] = useState(false)
+  const [photoUploading, setPhotoUploading] = useState(false)
+  const [photoDeleting, setPhotoDeleting] = useState(false)
+  const [editingPhoto, setEditingPhoto] = useState(false)
+  const photoInputRef = useRef<HTMLInputElement>(null)
 
   const canAddMatch = Boolean(profile?.roles.some((role) => role === UserRole.ADMIN || role === UserRole.TRENER))
   const canEditRoster = Boolean(profile?.roles.some((role) => role === UserRole.ADMIN || role === UserRole.TRENER))
@@ -244,6 +250,33 @@ export function TeamPage() {
     }
   }
 
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setPhotoUploading(true)
+    setErrorMessage(null)
+    try {
+      await uploadTeamPhoto(teamId, file)
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Kunne ikke laste opp bildet.')
+    } finally {
+      setPhotoUploading(false)
+      if (photoInputRef.current) photoInputRef.current.value = ''
+    }
+  }
+
+  const handleDeletePhoto = async () => {
+    setPhotoDeleting(true)
+    setErrorMessage(null)
+    try {
+      await deleteTeamPhoto(teamId)
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Kunne ikke slette bildet.')
+    } finally {
+      setPhotoDeleting(false)
+    }
+  }
+
   const scheduledMatches = teamMatches.filter((m) => m.clock.status === MatchStatus.SCHEDULED)
 
   const handleRemoveCoach = async (name: string) => {
@@ -376,6 +409,63 @@ export function TeamPage() {
 
       {statusMessage && <Alert severity="success">{statusMessage}</Alert>}
       {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
+
+      {(team.photoUrl || canEditRoster) && (
+        <Card>
+          <CardContent>
+            <Stack spacing={1.5}>
+              <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                <PhotoCameraRoundedIcon color="primary" fontSize="small" />
+                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Lagbilde</Typography>
+                {canEditRoster && (
+                  <IconButton size="small" sx={{ ml: 'auto' }} onClick={() => setEditingPhoto((prev) => !prev)}>
+                    <EditRoundedIcon fontSize="small" />
+                  </IconButton>
+                )}
+              </Stack>
+
+              {team.photoUrl && (
+                <Box
+                  component="img"
+                  src={team.photoUrl}
+                  alt={`${team.name} lagbilde`}
+                  sx={{ width: '100%', maxWidth: 400, borderRadius: 2, objectFit: 'cover' }}
+                />
+              )}
+
+              {canEditRoster && editingPhoto && (
+                <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                  <input
+                    ref={photoInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    style={{ display: 'none' }}
+                    onChange={(e) => void handlePhotoUpload(e)}
+                  />
+                  <Button
+                    variant="outlined"
+                    startIcon={photoUploading ? <CircularProgress size={16} /> : <PhotoCameraRoundedIcon />}
+                    onClick={() => photoInputRef.current?.click()}
+                    disabled={photoUploading || photoDeleting}
+                  >
+                    {photoUploading ? 'Laster opp...' : team.photoUrl ? 'Bytt bilde' : 'Last opp bilde'}
+                  </Button>
+                  {team.photoUrl && (
+                    <Button
+                      color="error"
+                      onClick={() => void handleDeletePhoto()}
+                      disabled={photoUploading || photoDeleting}
+                    >
+                      {photoDeleting ? 'Sletter...' : 'Fjern bilde'}
+                    </Button>
+                  )}
+                </Stack>
+              )}
+            </Stack>
+          </CardContent>
+        </Card>
+      )}
 
       {team.songUrl && (
         <Card>

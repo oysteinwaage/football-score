@@ -1,6 +1,7 @@
 import { get, increment, push, ref, remove, set, update } from 'firebase/database'
+import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage'
 
-import { database, firebaseConfigError } from '../firebase/config'
+import { database, firebaseConfigError, storage } from '../firebase/config'
 import { TeamRecord, TeamType, UserProfile, UserRole } from '../types/domain'
 
 function requireDatabase() {
@@ -200,4 +201,54 @@ export async function removeMatchReferenceFromTeam(teamId: string, matchId: stri
     matchIds: nextMatchIds,
     updatedAt: new Date().toISOString(),
   })
+}
+
+async function compressImage(file: File, maxWidth = 1200, quality = 0.82): Promise<Blob> {
+  return new Promise<Blob>((resolve, reject) => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      const scale = Math.min(1, maxWidth / img.width)
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.round(img.width * scale)
+      canvas.height = Math.round(img.height * scale)
+      const ctx = canvas.getContext('2d')
+      if (!ctx) { reject(new Error('Canvas ikke tilgjengelig')); return }
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob)
+        else reject(new Error('Komprimering feilet'))
+      }, 'image/jpeg', quality)
+    }
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Kunne ikke lese bildet')) }
+    img.src = url
+  })
+}
+
+export async function uploadTeamPhoto(teamId: string, file: File): Promise<string> {
+  if (!storage) throw new Error(firebaseConfigError ?? 'Firebase er ikke konfigurert.')
+  const db = requireDatabase()
+
+  const compressed = await compressImage(file)
+  const fileRef = storageRef(storage, `teams/${teamId}/teamPhoto`)
+  await uploadBytes(fileRef, compressed, { contentType: 'image/jpeg' })
+  const photoUrl = await getDownloadURL(fileRef)
+
+  await update(ref(db, `teams/${teamId}`), { photoUrl, updatedAt: new Date().toISOString() })
+  return photoUrl
+}
+
+export async function deleteTeamPhoto(teamId: string): Promise<void> {
+  if (!storage) throw new Error(firebaseConfigError ?? 'Firebase er ikke konfigurert.')
+  const db = requireDatabase()
+
+  const fileRef = storageRef(storage, `teams/${teamId}/teamPhoto`)
+  try {
+    await deleteObject(fileRef)
+  } catch {
+    // Filen finnes ikke i Storage — fortsett uansett
+  }
+
+  await update(ref(db, `teams/${teamId}`), { photoUrl: null, updatedAt: new Date().toISOString() })
 }
