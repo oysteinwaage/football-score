@@ -40,7 +40,6 @@ export function PhotoEditDialog({ open, hasPhoto, uploading, deleting, onClose, 
             ref={inputRef}
             type="file"
             accept="image/*"
-            capture="environment"
             style={{ display: 'none' }}
             onChange={handleFileChange}
           />
