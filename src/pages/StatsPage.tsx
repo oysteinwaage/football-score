@@ -158,6 +158,11 @@ export function StatsPage() {
     }
   }, [finishedMatches, selectedTeam])
 
+  const loanPlayerNames = useMemo(
+    () => new Set(stats?.playerList.filter((p) => !p.isMember).map((p) => p.name) ?? []),
+    [stats],
+  )
+
   const songPlayUsers = useMemo(() => {
     if (!selectedTeamId) return []
     return allUsers
@@ -306,7 +311,7 @@ export function StatsPage() {
                           <TableCell>
                             <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                               {i === 0 && <EmojiEventsRoundedIcon fontSize="small" color="warning" />}
-                              <span>{s.name}</span>
+                              <Box component="span" sx={loanPlayerNames.has(s.name) ? { color: 'warning.main' } : undefined}>{s.name}</Box>
                             </Stack>
                           </TableCell>
                           <TableCell align="right"><strong>{s.goals}</strong></TableCell>
@@ -338,7 +343,7 @@ export function StatsPage() {
                           <TableCell>
                             <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                               {i === 0 && <EmojiEventsRoundedIcon fontSize="small" color="warning" />}
-                              <span>{a.name}</span>
+                              <Box component="span" sx={loanPlayerNames.has(a.name) ? { color: 'warning.main' } : undefined}>{a.name}</Box>
                             </Stack>
                           </TableCell>
                           <TableCell align="right"><strong>{a.assists}</strong></TableCell>
@@ -369,7 +374,9 @@ export function StatsPage() {
                       <TableBody>
                         {stats.playerList.map((p) => (
                           <TableRow key={p.name}>
-                            <TableCell>{p.name}</TableCell>
+                            <TableCell>
+                              <Box component="span" sx={!p.isMember ? { color: 'warning.main' } : undefined}>{p.name}</Box>
+                            </TableCell>
                             <TableCell align="right">{p.matches}</TableCell>
                             <TableCell align="right">
                               {p.keeperCount > 0 ? (
@@ -423,6 +430,7 @@ export function StatsPage() {
                   <TableHead>
                     <TableRow>
                       <TableCell>Motstander</TableCell>
+                      <TableCell align="center">Sted</TableCell>
                       <TableCell align="center">Resultat</TableCell>
                       <TableCell align="center">Utfall</TableCell>
                     </TableRow>
@@ -442,6 +450,18 @@ export function StatsPage() {
                         return (
                           <TableRow key={match.id}>
                             <TableCell>{opponent}</TableCell>
+                            <TableCell align="center">
+                              <Chip
+                                label={ourSide === 'home' ? 'H' : 'B'}
+                                size="small"
+                                sx={{
+                                  bgcolor: ourSide === 'home' ? 'rgba(56, 142, 60, 0.15)' : 'rgba(230, 81, 0, 0.15)',
+                                  color: ourSide === 'home' ? 'success.dark' : 'warning.dark',
+                                  fontWeight: 600,
+                                  border: 'none',
+                                }}
+                              />
+                            </TableCell>
                             <TableCell align="center">{ourScore} - {theirScore}</TableCell>
                             <TableCell align="center">
                               <Chip label={outcome} size="small" color={color as 'success' | 'default' | 'error'} />
