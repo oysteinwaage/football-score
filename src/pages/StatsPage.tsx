@@ -132,8 +132,14 @@ export function StatsPage() {
       .map(([name, assists]) => ({ name, assists }))
       .sort((a, b) => b.assists - a.assists)
 
+    const teamPlayerNames = new Set(selectedTeam.playerNames ?? [])
     const playerList = Object.entries(playerParticipation)
-      .map(([name, matches]) => ({ name, matches, keeperCount: keeperAppearances[name] ?? 0 }))
+      .map(([name, matches]) => ({
+        name,
+        matches,
+        keeperCount: keeperAppearances[name] ?? 0,
+        isMember: teamPlayerNames.has(name),
+      }))
       .sort((a, b) => b.matches - a.matches)
 
     const coachList = Object.entries(coachParticipation)
@@ -348,30 +354,41 @@ export function StatsPage() {
               <StatCard title="Spillerdeltakelse og keepervakter" icon={<GroupsRoundedIcon color="primary" />}>
                 {stats.playerList.length === 0 ? (
                   <Typography color="text.secondary" variant="body2">Ingen spillerdata registrert.</Typography>
-                ) : (
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Spiller</TableCell>
-                        <TableCell align="right">Kamper</TableCell>
-                        <TableCell align="right">Keeper</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {stats.playerList.map((p) => (
-                        <TableRow key={p.name}>
-                          <TableCell>{p.name}</TableCell>
-                          <TableCell align="right">{p.matches}</TableCell>
-                          <TableCell align="right">
-                            {p.keeperCount > 0 ? (
-                              <Chip label={p.keeperCount} size="small" color="secondary" variant="outlined" />
-                            ) : '—'}
-                          </TableCell>
+                ) : (() => {
+                  const hasLoanPlayers = stats.playerList.some((p) => !p.isMember)
+                  return (
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Spiller</TableCell>
+                          <TableCell align="right">Kamper</TableCell>
+                          <TableCell align="right">Keeper</TableCell>
+                          {hasLoanPlayers && <TableCell align="right">Lånt</TableCell>}
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
+                      </TableHead>
+                      <TableBody>
+                        {stats.playerList.map((p) => (
+                          <TableRow key={p.name}>
+                            <TableCell>{p.name}</TableCell>
+                            <TableCell align="right">{p.matches}</TableCell>
+                            <TableCell align="right">
+                              {p.keeperCount > 0 ? (
+                                <Chip label={p.keeperCount} size="small" color="secondary" variant="outlined" />
+                              ) : '—'}
+                            </TableCell>
+                            {hasLoanPlayers && (
+                              <TableCell align="right">
+                                {!p.isMember ? (
+                                  <Chip label={p.matches} size="small" color="warning" variant="outlined" />
+                                ) : '—'}
+                              </TableCell>
+                            )}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )
+                })()}
               </StatCard>
             </Grid>
 
