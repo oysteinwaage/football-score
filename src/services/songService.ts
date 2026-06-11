@@ -1,7 +1,7 @@
-import { increment, push, ref, remove, set, update } from 'firebase/database'
+import { get, increment, push, ref, remove, set, update } from 'firebase/database'
 
 import { database, firebaseConfigError } from '../firebase/config'
-import { SongRecord } from '../types/domain'
+import { SongRecord, TeamRecord, UserProfile } from '../types/domain'
 
 function requireDatabase() {
   if (!database) {
@@ -28,6 +28,40 @@ export async function addSong(title: string, url: string, addedBy?: string): Pro
     title: title.trim(),
     url: normalizeSongUrl(url.trim()),
     ...(addedBy ? { addedBy } : {}),
+    createdAt: new Date().toISOString(),
+  }
+
+  await set(songRef, song)
+  return song
+}
+
+// Kopierer lagets offisielle lagsang inn i songs-tabellen, inkludert total
+// avspillingsteller og per-bruker-statistikk hentet fra brukernes songPlays.
+export async function archiveTeamSongToSongs(team: TeamRecord): Promise<SongRecord | null> {
+  if (!team.songUrl) return null
+  const db = requireDatabase()
+
+  const usersSnapshot = await get(ref(db, 'users'))
+  const userPlays: Record<string, number> = {}
+  if (usersSnapshot.exists()) {
+    const users = usersSnapshot.val() as Record<string, UserProfile>
+    for (const [uid, user] of Object.entries(users)) {
+      const plays = user.songPlays?.[team.id]
+      if (typeof plays === 'number' && plays > 0) userPlays[uid] = plays
+    }
+  }
+
+  const songRef = push(ref(db, 'songs'))
+  const id = songRef.key
+  if (!id) throw new Error('Kunne ikke opprette sang-ID.')
+
+  const song: SongRecord = {
+    id,
+    title: team.songTitle || team.name,
+    url: team.songUrl,
+    ...(team.songPlayCount ? { playCount: team.songPlayCount } : {}),
+    ...(Object.keys(userPlays).length > 0 ? { userPlays } : {}),
+    ...(team.songAddedBy ? { addedBy: team.songAddedBy } : {}),
     createdAt: new Date().toISOString(),
   }
 

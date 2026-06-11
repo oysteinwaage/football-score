@@ -34,7 +34,7 @@ import { useAuth } from '../context/AuthContext'
 import { useCollection, useDocument } from '../hooks/useRealtimeDatabase'
 import { fetchFotballCalendar } from '../services/fotballCalendar'
 import { createMatch, deleteMatch, importFixtures, updateMatch } from '../services/matchService'
-import { deleteTeam, deleteTeamPhoto, incrementTeamSongPlayCount, retireTeam, updateTeamHalfDuration, updateTeamName, updateTeamRoster, updateTeamSong, uploadTeamPhoto } from '../services/teamService'
+import { deleteTeam, deleteTeamPhoto, incrementTeamSongPlayCount, retireTeam, retireTeamSong, updateTeamHalfDuration, updateTeamName, updateTeamRoster, updateTeamSong, uploadTeamPhoto } from '../services/teamService'
 import { incrementUserSongPlay } from '../services/userService'
 import { MatchEventType, MatchRecord, MatchStatus, TeamRecord, UserRole } from '../types/domain'
 import { getMatchOutcomeBackground, getMatchOutcomeForTeam } from '../utils/matchCardColors'
@@ -53,6 +53,7 @@ export function TeamPage() {
   const [songValue, setSongValue] = useState('')
   const [songTitleValue, setSongTitleValue] = useState('')
   const [songSaving, setSongSaving] = useState(false)
+  const [pendingSongChange, setPendingSongChange] = useState<{ url: string | null; title?: string } | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [calendarUrl, setCalendarUrl] = useState('')
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
@@ -132,12 +133,38 @@ export function TeamPage() {
 
   const handleSaveSong = async () => {
     const trimmed = normalizeSongUrl(songValue.trim())
+    if (team?.songUrl && trimmed !== team.songUrl) {
+      // Endring av eksisterende lagsang — spør om den gamle skal flyttes til Andre sanger
+      setPendingSongChange({ url: trimmed || null, title: songTitleValue.trim() || undefined })
+      return
+    }
     setSongSaving(true)
     try {
       await updateTeamSong(teamId, trimmed || null, songTitleValue.trim() || undefined, profile?.uid)
       setEditingSong(false)
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Kunne ikke lagre sanglenkен.')
+    } finally {
+      setSongSaving(false)
+    }
+  }
+
+  const handleConfirmSongChange = async (moveToOtherSongs: boolean) => {
+    if (!pendingSongChange || !team) return
+    setSongSaving(true)
+    setErrorMessage(null)
+    try {
+      await retireTeamSong(team, moveToOtherSongs)
+      if (pendingSongChange.url) {
+        await updateTeamSong(teamId, pendingSongChange.url, pendingSongChange.title, profile?.uid)
+      }
+      if (moveToOtherSongs) {
+        setStatusMessage('Den gamle lagsangen ble flyttet til Andre sanger-listen.')
+      }
+      setPendingSongChange(null)
+      setEditingSong(false)
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Kunne ikke oppdatere lagsangen.')
     } finally {
       setSongSaving(false)
     }
@@ -485,17 +512,7 @@ export function TeamPage() {
                   <Button
                     color="error"
                     disabled={songSaving}
-                    onClick={async () => {
-                      setSongSaving(true)
-                      try {
-                        await updateTeamSong(teamId, null)
-                        setEditingSong(false)
-                      } catch (error) {
-                        setErrorMessage(error instanceof Error ? error.message : 'Kunne ikke fjerne sangen.')
-                      } finally {
-                        setSongSaving(false)
-                      }
-                    }}
+                    onClick={() => setPendingSongChange({ url: null })}
                   >
                     Fjern sang
                   </Button>
@@ -702,6 +719,26 @@ export function TeamPage() {
           </Button>
           <Button color="error" variant="contained" onClick={() => void handleDeleteTeam()} disabled={deletingTeam}>
             {deletingTeam ? 'Sletter...' : 'Bekreft sletting'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog open={Boolean(pendingSongChange)} onClose={() => !songSaving && setPendingSongChange(null)} fullWidth maxWidth="xs">
+        <DialogTitle>{pendingSongChange?.url ? 'Endre lagsang' : 'Fjern lagsang'}</DialogTitle>
+        <DialogContent>
+          <Typography>Vil du flytte gammel sang over til Andre sanger listen?</Typography>
+          <Typography color="text.secondary" variant="body2" sx={{ mt: 1 }}>
+            Avspillingsstatistikken blir med sangen over. Hvis ikke slettes sangen og statistikken.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, pt: 0 }}>
+          <Button onClick={() => setPendingSongChange(null)} disabled={songSaving}>
+            Avbryt
+          </Button>
+          <Button color="error" onClick={() => void handleConfirmSongChange(false)} disabled={songSaving}>
+            Nei
+          </Button>
+          <Button variant="contained" onClick={() => void handleConfirmSongChange(true)} disabled={songSaving}>
+            Ja, flytt sangen
           </Button>
         </DialogActions>
       </Dialog>

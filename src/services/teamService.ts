@@ -4,6 +4,7 @@ import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from 'fi
 import { database, firebaseConfigError, storage } from '../firebase/config'
 import { TeamRecord, TeamType, UserProfile, UserRole } from '../types/domain'
 import { compressImage } from '../utils/compressImage'
+import { archiveTeamSongToSongs } from './songService'
 
 function requireDatabase() {
   if (!database) {
@@ -149,8 +150,49 @@ export async function updateTeamHideHistoricalMatches(teamId: string, hideHistor
   })
 }
 
+// Pensjonerer lagets offisielle lagsang. Flytter den eventuelt til "Andre sanger"
+// (med avspillingsstatistikk), og fjerner deretter sangfeltene fra laget og
+// brukernes avspillingsstatistikk for laget.
+export async function retireTeamSong(team: TeamRecord, moveToOtherSongs: boolean): Promise<void> {
+  if (!team.songUrl) return
+  const db = requireDatabase()
+
+  if (moveToOtherSongs) {
+    await archiveTeamSongToSongs(team)
+  }
+
+  await update(ref(db, `teams/${team.id}`), {
+    songUrl: null,
+    songTitle: null,
+    songAddedBy: null,
+    songPlayCount: null,
+    updatedAt: new Date().toISOString(),
+  })
+
+  const usersSnapshot = await get(ref(db, 'users'))
+  if (usersSnapshot.exists()) {
+    const users = usersSnapshot.val() as Record<string, UserProfile>
+    await Promise.all(
+      Object.entries(users)
+        .filter(([, user]) => user.songPlays?.[team.id] !== undefined)
+        .map(([uid]) => remove(ref(db, `users/${uid}/songPlays/${team.id}`))),
+    )
+  }
+}
+
 export async function retireTeam(teamId: string, retired: boolean): Promise<void> {
-  await update(ref(requireDatabase(), `teams/${teamId}`), {
+  const db = requireDatabase()
+
+  // Når et lag med lagsang pensjoneres flyttes sangen automatisk til "Andre sanger"
+  if (retired) {
+    const snapshot = await get(ref(db, `teams/${teamId}`))
+    const team = snapshot.val() as TeamRecord | null
+    if (team?.songUrl) {
+      await retireTeamSong({ ...team, id: teamId }, true)
+    }
+  }
+
+  await update(ref(db, `teams/${teamId}`), {
     retired,
     updatedAt: new Date().toISOString(),
   })
