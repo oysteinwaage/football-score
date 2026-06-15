@@ -6,6 +6,7 @@ import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import FlagRoundedIcon from '@mui/icons-material/FlagRounded'
 import PauseCircleRoundedIcon from '@mui/icons-material/PauseCircleRounded'
 import PlayCircleRoundedIcon from '@mui/icons-material/PlayCircleRounded'
+import RestartAltRoundedIcon from '@mui/icons-material/RestartAltRounded'
 import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded'
 import StopCircleRoundedIcon from '@mui/icons-material/StopCircleRounded'
 import {
@@ -43,6 +44,10 @@ import { useDocument } from '../hooks/useRealtimeDatabase'
 import { deleteMatchPhoto, updateMatch, uploadMatchPhoto } from '../services/matchService'
 import { GoalAssist, GoalScorer, MatchEvent, MatchEventType, MatchRecord, MatchStatus, TeamRecord, UserRole } from '../types/domain'
 import { formatMatchTime, getLiveElapsedSeconds } from '../utils/matchClock'
+
+function firstName(name: string) {
+  return name.split(' ')[0].toLowerCase()
+}
 
 function computeGoalStats(events: MatchEvent[], ourGoalType: MatchEventType): { goalScorers: GoalScorer[]; goalAssists: GoalAssist[] } {
   const scorerCounts: Record<string, number> = {}
@@ -106,6 +111,8 @@ export function MatchPage() {
   const [photoUploading, setPhotoUploading] = useState(false)
   const [photoDeleting, setPhotoDeleting] = useState(false)
   const [editingPhoto, setEditingPhoto] = useState(false)
+  const [resetConfirm1Open, setResetConfirm1Open] = useState(false)
+  const [resetConfirm2Open, setResetConfirm2Open] = useState(false)
   const photoInputRef = useRef<HTMLInputElement>(null)
 
   const canManage = Boolean(profile?.roles.some((role) => role === UserRole.ADMIN || role === UserRole.KAMPLEDER || role === UserRole.TRENER))
@@ -234,6 +241,26 @@ export function MatchPage() {
     await persistMatch(nextMatch, 'Kampen er avsluttet.')
     setEndMatchNote('')
     setEndMatchKeepers([])
+  }
+
+  const resetMatch = async () => {
+    const nextMatch: MatchRecord = {
+      ...match,
+      clock: {
+        status: MatchStatus.SCHEDULED,
+        elapsedSeconds: 0,
+        startedAt: null,
+      },
+      events: [],
+      score: { home: 0, away: 0 },
+      goalScorers: [],
+      goalAssists: [],
+      keeperNames: [],
+    }
+
+    setResetConfirm1Open(false)
+    setResetConfirm2Open(false)
+    await persistMatch(nextMatch, 'Kampen er resatt.')
   }
 
   const registerGoal = async (side: 'home' | 'away', scorerName: string, assistName?: string) => {
@@ -386,6 +413,13 @@ export function MatchPage() {
   const matchPlayerNames = match.playerNames ?? []
   const matchCoachNames = match.coachNames ?? []
 
+  const canResetMatch = Boolean(
+    profile &&
+      (profile.roles.includes(UserRole.ADMIN) ||
+        (profile.roles.includes(UserRole.TRENER) &&
+          matchCoachNames.some((coach) => firstName(coach) === firstName(profile.parentName)))),
+  )
+
   const handleRemoveMatchCoach = async (name: string) => {
     await persistMatch({ ...match, coachNames: matchCoachNames.filter((c) => c !== name) }, 'Trener fjernet fra kampen.')
   }
@@ -420,15 +454,29 @@ export function MatchPage() {
 
   return (
     <Stack spacing={3}>
-      {team && (
-        <Button
-          component={RouterLink}
-          to={`/teams/${team.id}`}
-          startIcon={<ArrowBackRoundedIcon />}
-          sx={{ alignSelf: 'flex-start', my: -3 }}
-        >
-          {team.name}
-        </Button>
+      {(team || (canResetMatch && !isScheduled)) && (
+        <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between', my: -3 }}>
+          {team ? (
+            <Button
+              component={RouterLink}
+              to={`/teams/${team.id}`}
+              startIcon={<ArrowBackRoundedIcon />}
+            >
+              {team.name}
+            </Button>
+          ) : (
+            <span />
+          )}
+          {canResetMatch && !isScheduled && (
+            <Button
+              color="error"
+              startIcon={<RestartAltRoundedIcon />}
+              onClick={() => setResetConfirm1Open(true)}
+            >
+              Resett kamp
+            </Button>
+          )}
+        </Stack>
       )}
       {statusMessage && <Alert severity="success">{statusMessage}</Alert>}
       {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
@@ -851,6 +899,42 @@ export function MatchPage() {
           <Button onClick={() => setEndMatchModalOpen(false)}>Avbryt</Button>
           <Button variant="contained" color="error" onClick={() => void endMatch()}>
             Avslutt og lagre kamp
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={resetConfirm1Open} onClose={() => setResetConfirm1Open(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Er du helt sikker?</DialogTitle>
+        <DialogContent>
+          <Typography>
+            All data tilhørende kampen vil bli resatt. Alle hendelser slettes, keepere
+            fjernes og tiden settes tilbake til 00:00.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, pt: 0 }}>
+          <Button onClick={() => setResetConfirm1Open(false)}>Avbryt</Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={() => { setResetConfirm1Open(false); setResetConfirm2Open(true) }}
+          >
+            Ja, resett kampen
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={resetConfirm2Open} onClose={() => setResetConfirm2Open(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Er du HELT SIKKER?!</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Dette kan ikke angres. Alle hendelser tilhørende kampen slettes, registrering
+            av keeper fjernes og tiden settes tilbake til 00:00.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, pt: 0 }}>
+          <Button onClick={() => setResetConfirm2Open(false)}>Avbryt</Button>
+          <Button variant="contained" color="error" onClick={() => void resetMatch()}>
+            Ja, jeg er helt sikker
           </Button>
         </DialogActions>
       </Dialog>
