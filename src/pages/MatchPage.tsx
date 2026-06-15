@@ -6,7 +6,6 @@ import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import FlagRoundedIcon from '@mui/icons-material/FlagRounded'
 import PauseCircleRoundedIcon from '@mui/icons-material/PauseCircleRounded'
 import PlayCircleRoundedIcon from '@mui/icons-material/PlayCircleRounded'
-import RestartAltRoundedIcon from '@mui/icons-material/RestartAltRounded'
 import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded'
 import StopCircleRoundedIcon from '@mui/icons-material/StopCircleRounded'
 import {
@@ -470,7 +469,6 @@ export function MatchPage() {
           {canResetMatch && !isScheduled && (
             <Button
               color="error"
-              startIcon={<RestartAltRoundedIcon />}
               onClick={() => setResetConfirm1Open(true)}
             >
               Resett kamp
