@@ -129,10 +129,10 @@ export default function App() {
         <Route path="/retired-teams" element={<RetiredTeamsPage />} />
         <Route path="/sanger" element={<SangerPage />} />
         <Route path="/stats" element={<StatsPage />} />
+        <Route path="/global-stats" element={<GlobalStatsPage />} />
         <Route element={<AdminRoute />}>
           <Route path="/admin" element={<AdminPage />} />
           <Route path="/create-team" element={<CreateTeamPage />} />
-          <Route path="/global-stats" element={<GlobalStatsPage />} />
         </Route>
       </Route>
       <Route path="*" element={<NotFoundPage />} />

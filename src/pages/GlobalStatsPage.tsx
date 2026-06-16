@@ -10,7 +10,6 @@ import {
   Card,
   CardContent,
   Chip,
-  Collapse,
   Stack,
   Tab,
   Table,
@@ -111,7 +110,7 @@ export function GlobalStatsPage() {
   const [expandedPlayer, setExpandedPlayer] = useState<string | null>(null)
   const [expandedCoach, setExpandedCoach] = useState<string | null>(null)
 
-  const isAdmin = profile?.roles.includes(UserRole.ADMIN)
+  const canView = profile?.roles.some((r) => r === UserRole.ADMIN || r === UserRole.STATS)
 
   const relevantTeams = useMemo(
     () => allTeams.filter((t) => t.teamType !== TeamType.TEST),
@@ -331,8 +330,8 @@ export function GlobalStatsPage() {
       .sort((a, b) => b.totalPlays - a.totalPlays)
   }, [allUsers, allSongs])
 
-  if (!isAdmin) {
-    return <Alert severity="error">Kun tilgjengelig for administratorer.</Alert>
+  if (!canView) {
+    return <Alert severity="error">Kun tilgjengelig for administratorer og statistikkansvarlige.</Alert>
   }
 
   return (
@@ -502,36 +501,23 @@ export function GlobalStatsPage() {
                           ) : '—'}
                         </TableCell>
                       </TableRow>
-                      <TableRow>
-                        <TableCell
-                          colSpan={4}
-                          sx={{ py: 0, ...(isExpanded ? {} : { border: 0 }) }}
-                        >
-                          <Collapse in={isExpanded} timeout="auto" unmountOnExit>
-                            <Box sx={{ py: 2, px: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
-                              <Stack spacing={1}>
-                                <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 600 }}>
-                                  Per lag
-                                </Typography>
-                                {c.teamBreakdown.map((t) => (
-                                  <Stack key={t.teamId} direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                                    <Box sx={{ flex: 1 }}>
-                                      <Typography variant="body2">{t.teamName}</Typography>
-                                      {t.teamType === TeamType.CUP && t.cupName && (
-                                        <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>{t.cupName}</Typography>
-                                      )}
-                                    </Box>
-                                    <Typography variant="body2" color="text.secondary">{t.matchesAttended} deltatt</Typography>
-                                    {t.matchesMissed > 0 && (
-                                      <Chip label={`${t.matchesMissed} misset`} size="small" color="warning" variant="outlined" />
-                                    )}
-                                  </Stack>
-                                ))}
-                              </Stack>
-                            </Box>
-                          </Collapse>
-                        </TableCell>
-                      </TableRow>
+                      {isExpanded && c.teamBreakdown.map((t) => (
+                        <TableRow key={t.teamId} sx={{ bgcolor: 'action.hover' }}>
+                          <TableCell />
+                          <TableCell sx={{ pl: 3 }}>
+                            <Typography variant="body2">{t.teamName}</Typography>
+                            {t.teamType === TeamType.CUP && t.cupName && (
+                              <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>{t.cupName}</Typography>
+                            )}
+                          </TableCell>
+                          <TableCell align="right">{t.matchesAttended > 0 ? t.matchesAttended : '—'}</TableCell>
+                          <TableCell align="right">
+                            {t.matchesMissed > 0 ? (
+                              <Chip label={t.matchesMissed} size="small" color="warning" variant="outlined" />
+                            ) : '—'}
+                          </TableCell>
+                        </TableRow>
+                      ))}
                     </Fragment>
                   )
                 })}
