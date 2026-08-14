@@ -17,9 +17,14 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
+  FormControl,
   Grid,
   IconButton,
   InputAdornment,
+  InputLabel,
+  MenuItem,
+  Select,
   Stack,
   TextField,
   Typography,
@@ -34,7 +39,7 @@ import { useAuth } from '../context/AuthContext'
 import { useCollection, useDocument } from '../hooks/useRealtimeDatabase'
 import { fetchFotballCalendar } from '../services/fotballCalendar'
 import { createMatch, deleteMatch, importFixtures, updateMatch } from '../services/matchService'
-import { deleteTeam, deleteTeamPhoto, incrementTeamSongPlayCount, retireTeam, retireTeamSong, updateTeamHalfDuration, updateTeamName, updateTeamRoster, updateTeamSong, uploadTeamPhoto } from '../services/teamService'
+import { deleteTeam, deleteTeamPhoto, incrementTeamSongPlayCount, retireTeam, retireTeamSong, updateTeamHalfDuration, updateTeamName, updateTeamNumberOfHalves, updateTeamRoster, updateTeamSong, uploadTeamPhoto } from '../services/teamService'
 import { incrementUserSongPlay } from '../services/userService'
 import { MatchEventType, MatchRecord, MatchStatus, TeamRecord, UserRole } from '../types/domain'
 import { getMatchOutcomeBackground, getMatchOutcomeForTeam } from '../utils/matchCardColors'
@@ -67,6 +72,9 @@ export function TeamPage() {
   const [editingHalfDuration, setEditingHalfDuration] = useState(false)
   const [halfDurationValue, setHalfDurationValue] = useState('')
   const [halfDurationSaving, setHalfDurationSaving] = useState(false)
+  const [editingNumberOfHalves, setEditingNumberOfHalves] = useState(false)
+  const [numberOfHalvesValue, setNumberOfHalvesValue] = useState('2')
+  const [numberOfHalvesSaving, setNumberOfHalvesSaving] = useState(false)
   const [photoUploading, setPhotoUploading] = useState(false)
   const [photoDeleting, setPhotoDeleting] = useState(false)
   const [editingPhoto, setEditingPhoto] = useState(false)
@@ -304,6 +312,28 @@ export function TeamPage() {
   }
 
   const scheduledMatches = teamMatches.filter((m) => m.clock.status === MatchStatus.SCHEDULED)
+
+  const handleSaveNumberOfHalves = async () => {
+    const parsed = parseInt(numberOfHalvesValue, 10)
+    if (parsed !== 1 && parsed !== 2) {
+      return
+    }
+    setNumberOfHalvesSaving(true)
+    setErrorMessage(null)
+    setStatusMessage(null)
+    try {
+      await updateTeamNumberOfHalves(teamId, parsed)
+      await Promise.all(
+        scheduledMatches.map((m) => updateMatch(m.id, { numberOfHalves: parsed })),
+      )
+      setEditingNumberOfHalves(false)
+      setStatusMessage('Antall omganger lagret.')
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Kunne ikke lagre antall omganger.')
+    } finally {
+      setNumberOfHalvesSaving(false)
+    }
+  }
 
   const handleRemoveCoach = async (name: string) => {
     await updateTeamRoster(teamId, team.playerNames, team.coachNames.filter((c) => c !== name))
@@ -572,37 +602,73 @@ export function TeamPage() {
       {isAdmin && (
         <Card>
           <CardContent>
-            <Stack spacing={1.5}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Omgangslengde</Typography>
-              {editingHalfDuration ? (
-                <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                  <TextField
-                    label="Minutter per omgang"
-                    type="number"
-                    value={halfDurationValue}
-                    onChange={(e) => setHalfDurationValue(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') void handleSaveHalfDuration()
-                      if (e.key === 'Escape') setEditingHalfDuration(false)
-                    }}
-                    disabled={halfDurationSaving}
-                    size="small"
-                    autoFocus
-                    slotProps={{ htmlInput: { min: 1, max: 90 } }}
-                  />
-                  <Button onClick={() => void handleSaveHalfDuration()} disabled={halfDurationSaving}>Lagre</Button>
-                  <Button onClick={() => setEditingHalfDuration(false)} disabled={halfDurationSaving}>Avbryt</Button>
-                </Stack>
-              ) : (
-                <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                  <Typography>{team.halfDurationMinutes ?? 30} minutter per omgang</Typography>
-                  {!team.retired && (
-                    <IconButton size="small" onClick={() => { setHalfDurationValue(String(team.halfDurationMinutes ?? 30)); setEditingHalfDuration(true) }}>
-                      <EditRoundedIcon fontSize="small" />
-                    </IconButton>
-                  )}
-                </Stack>
-              )}
+            <Stack spacing={3}>
+              <Stack spacing={1.5}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Omgangslengde</Typography>
+                {editingHalfDuration ? (
+                  <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                    <TextField
+                      label="Minutter per omgang"
+                      type="number"
+                      value={halfDurationValue}
+                      onChange={(e) => setHalfDurationValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') void handleSaveHalfDuration()
+                        if (e.key === 'Escape') setEditingHalfDuration(false)
+                      }}
+                      disabled={halfDurationSaving}
+                      size="small"
+                      autoFocus
+                      slotProps={{ htmlInput: { min: 1, max: 90 } }}
+                    />
+                    <Button onClick={() => void handleSaveHalfDuration()} disabled={halfDurationSaving}>Lagre</Button>
+                    <Button onClick={() => setEditingHalfDuration(false)} disabled={halfDurationSaving}>Avbryt</Button>
+                  </Stack>
+                ) : (
+                  <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                    <Typography>{team.halfDurationMinutes ?? 30} minutter per omgang</Typography>
+                    {!team.retired && (
+                      <IconButton size="small" onClick={() => { setHalfDurationValue(String(team.halfDurationMinutes ?? 30)); setEditingHalfDuration(true) }}>
+                        <EditRoundedIcon fontSize="small" />
+                      </IconButton>
+                    )}
+                  </Stack>
+                )}
+              </Stack>
+
+              <Divider />
+
+              <Stack spacing={1.5}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Antall omganger</Typography>
+                {editingNumberOfHalves ? (
+                  <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                    <FormControl size="small" sx={{ minWidth: 140 }}>
+                      <InputLabel>Antall omganger</InputLabel>
+                      <Select
+                        label="Antall omganger"
+                        value={numberOfHalvesValue}
+                        onChange={(e) => setNumberOfHalvesValue(e.target.value as string)}
+                        disabled={numberOfHalvesSaving}
+                        autoFocus
+                      >
+                        <MenuItem value="1">1 omgang</MenuItem>
+                        <MenuItem value="2">2 omganger</MenuItem>
+                      </Select>
+                    </FormControl>
+                    <Button onClick={() => void handleSaveNumberOfHalves()} disabled={numberOfHalvesSaving}>Lagre</Button>
+                    <Button onClick={() => setEditingNumberOfHalves(false)} disabled={numberOfHalvesSaving}>Avbryt</Button>
+                  </Stack>
+                ) : (
+                  <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                    <Typography>{(team.numberOfHalves ?? 2) === 1 ? '1 omgang' : '2 omganger'}</Typography>
+                    {!team.retired && (
+                      <IconButton size="small" onClick={() => { setNumberOfHalvesValue(String(team.numberOfHalves ?? 2)); setEditingNumberOfHalves(true) }}>
+                        <EditRoundedIcon fontSize="small" />
+                      </IconButton>
+                    )}
+                  </Stack>
+                )}
+              </Stack>
             </Stack>
           </CardContent>
         </Card>

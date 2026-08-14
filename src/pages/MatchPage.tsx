@@ -87,7 +87,8 @@ export function MatchPage() {
   const { data: match, loading, error } = useDocument<MatchRecord>(matchId ? `matches/${matchId}` : null)
   const { data: team } = useDocument<TeamRecord>(match ? `teams/${match.teamId}` : null)
   const halfDuration = (team?.halfDurationMinutes ?? 30) * 60
-  const fullDuration = halfDuration * 2
+  const numberOfHalves = match?.numberOfHalves ?? team?.numberOfHalves ?? 2
+  const fullDuration = halfDuration * numberOfHalves
   const [clockSeconds, setClockSeconds] = useState(0)
   const [scorerModalOpen, setScorerModalOpen] = useState(false)
   const [pendingScorer, setPendingScorer] = useState('')
@@ -580,7 +581,7 @@ export function MatchPage() {
                       Start kamp
                     </Button>
                   )}
-                  {isFirstHalf && (
+                  {isFirstHalf && numberOfHalves === 2 && (
                     <Button variant="contained" color="warning" startIcon={<PauseCircleRoundedIcon />} onClick={() => void pauseMatch()}>
                       Pause
                     </Button>

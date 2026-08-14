@@ -73,6 +73,7 @@ export async function createMatch(input: CreateMatchInput): Promise<MatchRecord>
       elapsedSeconds: 0,
       startedAt: null,
     },
+    numberOfHalves: teamData?.numberOfHalves,
     events: [],
     playerNames: teamData?.playerNames ?? [],
     coachNames: teamData?.coachNames ?? [],

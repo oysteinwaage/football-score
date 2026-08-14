@@ -122,6 +122,13 @@ export async function updateTeamHalfDuration(teamId: string, halfDurationMinutes
   })
 }
 
+export async function updateTeamNumberOfHalves(teamId: string, numberOfHalves: number): Promise<void> {
+  await update(ref(requireDatabase(), `teams/${teamId}`), {
+    numberOfHalves,
+    updatedAt: new Date().toISOString(),
+  })
+}
+
 export async function updateTeamRequireScorerModal(teamId: string, requireScorerModal: boolean): Promise<void> {
   await update(ref(requireDatabase(), `teams/${teamId}`), {
     requireScorerModal,

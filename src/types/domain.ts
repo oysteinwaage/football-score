@@ -97,6 +97,7 @@ export interface TeamRecord {
   songAddedBy?: string
   retired?: boolean
   halfDurationMinutes?: number
+  numberOfHalves?: number
   requireScorerModal?: boolean
   showScorerInEvents?: boolean
   showScorerInEventsForCoach?: boolean
@@ -114,6 +115,7 @@ export interface MatchRecord {
   location: string
   score: MatchScore
   clock: MatchClock
+  numberOfHalves?: number
   events: MatchEvent[]
   playerNames: string[]
   coachNames: string[]
