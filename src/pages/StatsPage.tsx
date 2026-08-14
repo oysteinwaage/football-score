@@ -13,6 +13,7 @@ import {
   CardContent,
   Chip,
   FormControl,
+  FormHelperText,
   Grid,
   InputLabel,
   MenuItem,
@@ -62,6 +63,8 @@ export function StatsPage() {
   }
 
   const accessibleTeams = allTeams.filter((t) => profile?.roles.includes(UserRole.ADMIN) || profile?.teamIds.includes(t.id))
+  const activeTeams = accessibleTeams.filter((t) => !t.retired)
+  const retiredTeams = accessibleTeams.filter((t) => t.retired)
 
   const selectedTeam = accessibleTeams.find((t) => t.id === selectedTeamId) ?? null
 
@@ -188,20 +191,43 @@ export function StatsPage() {
         )}
       </Stack>
 
-      <FormControl fullWidth>
-        <InputLabel>Velg lag</InputLabel>
-        <Select
-          label="Velg lag"
-          value={selectedTeamId}
-          onChange={(e) => setSelectedTeamId(e.target.value as string)}
-        >
-          {accessibleTeams.map((team) => (
-            <MenuItem key={team.id} value={team.id}>
-              {team.name}{team.teamType === TeamType.CUP && team.cupName && <> – <em>{team.cupName}</em></>}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
+      <Grid container spacing={2}>
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <FormControl fullWidth>
+            <InputLabel>Velg lag</InputLabel>
+            <Select
+              label="Velg lag"
+              value={activeTeams.some((t) => t.id === selectedTeamId) ? selectedTeamId : ''}
+              onChange={(e) => setSelectedTeamId(e.target.value as string)}
+            >
+              {activeTeams.map((team) => (
+                <MenuItem key={team.id} value={team.id}>
+                  {team.name}{team.teamType === TeamType.CUP && team.cupName && <> – <em>{team.cupName}</em></>}
+                </MenuItem>
+              ))}
+            </Select>
+            <FormHelperText>Aktive lag</FormHelperText>
+          </FormControl>
+        </Grid>
+
+        <Grid size={{ xs: 12, sm: 6 }}>
+          <FormControl fullWidth>
+            <InputLabel>Velg pensjonert lag</InputLabel>
+            <Select
+              label="Velg pensjonert lag"
+              value={retiredTeams.some((t) => t.id === selectedTeamId) ? selectedTeamId : ''}
+              onChange={(e) => setSelectedTeamId(e.target.value as string)}
+            >
+              {retiredTeams.map((team) => (
+                <MenuItem key={team.id} value={team.id}>
+                  {team.name}{team.teamType === TeamType.CUP && team.cupName && <> – <em>{team.cupName}</em></>}
+                </MenuItem>
+              ))}
+            </Select>
+            <FormHelperText>Lag som ikke lenger er aktive</FormHelperText>
+          </FormControl>
+        </Grid>
+      </Grid>
 
       {selectedTeam?.songUrl && (
         <StatCard title={`Lagsangavspillinger – ${selectedTeam.songTitle || 'Lagssang'}`} icon={<MusicNoteRoundedIcon color="primary" />}>

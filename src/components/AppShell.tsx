@@ -48,6 +48,21 @@ import { InstallBanner } from './InstallBanner'
 
 const drawerWidth = 280
 
+function renderCupTeamLabel(team: TeamRecord) {
+  return (
+    <>
+      {team.cupName && (
+        <Typography component="span" variant="caption" sx={{ display: 'block', fontWeight: 300, color: 'text.secondary', lineHeight: 1.3 }}>
+          {team.cupName}
+        </Typography>
+      )}
+      <Typography component="span" variant="body1" sx={{ display: 'block' }}>
+        {team.name}
+      </Typography>
+    </>
+  )
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [lagOpen, setLagOpen] = useState(false)
@@ -165,7 +180,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   sx={{ borderRadius: 3, mb: 0.5 }}
                 >
                   <ListItemIcon><GroupsRoundedIcon /></ListItemIcon>
-                  <ListItemText primary={cupTeams[0].name} />
+                  <ListItemText primary={renderCupTeamLabel(cupTeams[0])} />
                 </ListItemButton>
               )}
               {cupTeams.length > 1 && (
@@ -186,7 +201,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                           onClick={() => setMobileOpen(false)}
                           sx={{ borderRadius: 3, mb: 0.5 }}
                         >
-                          <ListItemText primary={team.name} />
+                          <ListItemText primary={renderCupTeamLabel(team)} />
                         </ListItemButton>
                       ))}
                     </List>
