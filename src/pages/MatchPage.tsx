@@ -113,6 +113,9 @@ export function MatchPage() {
   const [editingPhoto, setEditingPhoto] = useState(false)
   const [resetConfirm1Open, setResetConfirm1Open] = useState(false)
   const [resetConfirm2Open, setResetConfirm2Open] = useState(false)
+  const [editingCoachNote, setEditingCoachNote] = useState(false)
+  const [coachNoteValue, setCoachNoteValue] = useState('')
+  const [coachNoteSaving, setCoachNoteSaving] = useState(false)
   const photoInputRef = useRef<HTMLInputElement>(null)
 
   const canManage = Boolean(profile?.roles.some((role) => role === UserRole.ADMIN || role === UserRole.KAMPLEDER || role === UserRole.TRENER))
@@ -420,6 +423,27 @@ export function MatchPage() {
           matchCoachNames.some((coach) => firstName(coach) === firstName(profile.parentName)))),
   )
 
+  const isMatchedTeamCoach = Boolean(
+    profile &&
+      profile.roles.includes(UserRole.TRENER) &&
+      (team?.coachNames ?? []).some((coach) => firstName(coach) === firstName(profile.parentName)),
+  )
+
+  const handleSaveCoachNote = async () => {
+    setCoachNoteSaving(true)
+    setErrorMessage(null)
+    setStatusMessage(null)
+    try {
+      await updateMatch(match.id, { coachNote: coachNoteValue.trim() })
+      setEditingCoachNote(false)
+      setStatusMessage('Trener-notatet er lagret.')
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Kunne ikke lagre trener-notatet.')
+    } finally {
+      setCoachNoteSaving(false)
+    }
+  }
+
   const handleRemoveMatchCoach = async (name: string) => {
     await persistMatch({ ...match, coachNames: matchCoachNames.filter((c) => c !== name) }, 'Trener fjernet fra kampen.')
   }
@@ -692,6 +716,46 @@ export function MatchPage() {
                     Avslutt korrigering
                   </Button>
                 </>
+              )}
+            </Stack>
+          </CardContent>
+        </Card>
+      )}
+
+      {isFinished && isMatchedTeamCoach && team?.showCoachNote !== false && (
+        <Card>
+          <CardContent>
+            <Stack spacing={1.5}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Trener-notat</Typography>
+              <Typography variant="body2" color="text.secondary">
+                Kun synlig for trenere registrert på laget. Bruk gjerne til info om kampen eller motstanderlaget.
+              </Typography>
+              {editingCoachNote ? (
+                <Stack spacing={1}>
+                  <TextField
+                    value={coachNoteValue}
+                    onChange={(e) => setCoachNoteValue(e.target.value)}
+                    disabled={coachNoteSaving}
+                    multiline
+                    minRows={3}
+                    fullWidth
+                    autoFocus
+                    placeholder="F.eks. motstanderen presser høyt, husk å rotere keeper..."
+                  />
+                  <Stack direction="row" spacing={1}>
+                    <Button onClick={() => void handleSaveCoachNote()} disabled={coachNoteSaving}>Lagre</Button>
+                    <Button onClick={() => setEditingCoachNote(false)} disabled={coachNoteSaving}>Avbryt</Button>
+                  </Stack>
+                </Stack>
+              ) : (
+                <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
+                  <Typography sx={{ whiteSpace: 'pre-wrap', flex: 1 }} color={match.coachNote ? 'text.primary' : 'text.secondary'}>
+                    {match.coachNote || 'Ingen notater lagt til.'}
+                  </Typography>
+                  <IconButton size="small" onClick={() => { setCoachNoteValue(match.coachNote ?? ''); setEditingCoachNote(true) }}>
+                    <EditRoundedIcon fontSize="small" />
+                  </IconButton>
+                </Stack>
               )}
             </Stack>
           </CardContent>

@@ -157,6 +157,13 @@ export async function updateTeamHideHistoricalMatches(teamId: string, hideHistor
   })
 }
 
+export async function updateTeamShowCoachNote(teamId: string, showCoachNote: boolean): Promise<void> {
+  await update(ref(requireDatabase(), `teams/${teamId}`), {
+    showCoachNote,
+    updatedAt: new Date().toISOString(),
+  })
+}
+
 // Pensjonerer lagets offisielle lagsang. Flytter den eventuelt til "Andre sanger"
 // (med avspillingsstatistikk), og fjerner deretter sangfeltene fra laget og
 // brukernes avspillingsstatistikk for laget.

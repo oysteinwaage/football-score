@@ -102,6 +102,7 @@ export interface TeamRecord {
   showScorerInEvents?: boolean
   showScorerInEventsForCoach?: boolean
   hideHistoricalMatches?: boolean
+  showCoachNote?: boolean
   createdAt: string
   updatedAt: string
 }
@@ -127,6 +128,7 @@ export interface MatchRecord {
   externalSourceId?: string
   importedFromUrl?: string
   photoUrl?: string
+  coachNote?: string
 }
 
 export interface SongRecord {

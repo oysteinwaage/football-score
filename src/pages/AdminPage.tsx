@@ -27,7 +27,7 @@ import { Link as RouterLink } from 'react-router-dom'
 
 import { useAuth } from '../context/AuthContext'
 import { useCollection } from '../hooks/useRealtimeDatabase'
-import { updateTeamHideHistoricalMatches, updateTeamRequireScorerModal, updateTeamShowScorerInEvents, updateTeamShowScorerInEventsForCoach } from '../services/teamService'
+import { updateTeamHideHistoricalMatches, updateTeamRequireScorerModal, updateTeamShowCoachNote, updateTeamShowScorerInEvents, updateTeamShowScorerInEventsForCoach } from '../services/teamService'
 import { deleteUserProfile, updateUserAccess, updateUserShowScorerInEvents } from '../services/userService'
 import { TeamRecord, UserProfile, UserRole } from '../types/domain'
 
@@ -188,6 +188,16 @@ export function AdminPage() {
                           />
                         }
                         label="Skjul historiske kamper"
+                        labelPlacement="start"
+                      />
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={team.showCoachNote !== false}
+                            onChange={() => void updateTeamShowCoachNote(team.id, team.showCoachNote === false)}
+                          />
+                        }
+                        label="Vis trener-notat"
                         labelPlacement="start"
                       />
                     </Stack>

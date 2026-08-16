@@ -143,6 +143,7 @@ export function normalizeTeamRecord(value: unknown, id: string): TeamRecord {
     showScorerInEvents: source.showScorerInEvents !== false,
     showScorerInEventsForCoach: source.showScorerInEventsForCoach === true,
     hideHistoricalMatches: source.hideHistoricalMatches === true,
+    showCoachNote: source.showCoachNote !== false,
     createdAt: typeof source.createdAt === 'string' ? source.createdAt : new Date(0).toISOString(),
     updatedAt: typeof source.updatedAt === 'string' ? source.updatedAt : new Date(0).toISOString(),
   }
@@ -172,6 +173,7 @@ export function normalizeMatchRecord(value: unknown, id: string): MatchRecord {
     externalSourceId: typeof source.externalSourceId === 'string' ? source.externalSourceId : undefined,
     importedFromUrl: typeof source.importedFromUrl === 'string' ? source.importedFromUrl : undefined,
     photoUrl: typeof source.photoUrl === 'string' ? source.photoUrl : undefined,
+    coachNote: typeof source.coachNote === 'string' ? source.coachNote : undefined,
   }
 }
 
