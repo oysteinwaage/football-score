@@ -39,7 +39,7 @@ import { Link as RouterLink, useParams } from 'react-router-dom'
 import { PhotoEditDialog } from '../components/PhotoEditDialog'
 import { RosterCard } from '../components/RosterCard'
 import { useAuth } from '../context/AuthContext'
-import { useDocument } from '../hooks/useRealtimeDatabase'
+import { useCollection, useDocument } from '../hooks/useRealtimeDatabase'
 import { deleteMatchPhoto, updateMatch, uploadMatchPhoto } from '../services/matchService'
 import { GoalAssist, GoalScorer, MatchEvent, MatchEventType, MatchRecord, MatchStatus, TeamRecord, UserRole } from '../types/domain'
 import { formatMatchTime, getLiveElapsedSeconds } from '../utils/matchClock'
@@ -86,6 +86,7 @@ export function MatchPage() {
   const { profile } = useAuth()
   const { data: match, loading, error } = useDocument<MatchRecord>(matchId ? `matches/${matchId}` : null)
   const { data: team } = useDocument<TeamRecord>(match ? `teams/${match.teamId}` : null)
+  const { data: allTeams } = useCollection<TeamRecord>('teams')
   const halfDuration = (team?.halfDurationMinutes ?? 30) * 60
   const numberOfHalves = match?.numberOfHalves ?? team?.numberOfHalves ?? 2
   const fullDuration = halfDuration * numberOfHalves
@@ -462,6 +463,13 @@ export function MatchPage() {
 
   const coachSuggestions = (team?.coachNames ?? []).filter((name) => !matchCoachNames.includes(name))
   const playerSuggestions = (team?.playerNames ?? []).filter((name) => !matchPlayerNames.includes(name))
+  const otherTeamPlayerGroups = allTeams
+    .filter((otherTeam) => otherTeam.id !== match.teamId && !otherTeam.retired && otherTeam.allowPlayerLoans === true)
+    .map((otherTeam) => ({
+      label: otherTeam.name,
+      names: (otherTeam.playerNames ?? []).filter((name) => !matchPlayerNames.includes(name)),
+    }))
+    .filter((group) => group.names.length > 0)
 
   const isScheduled = match.clock.status === MatchStatus.SCHEDULED
   const isFirstHalf = match.clock.status === MatchStatus.FIRST_HALF
@@ -584,6 +592,8 @@ export function MatchPage() {
               names={matchPlayerNames}
               canEdit={canEditRoster}
               suggestions={playerSuggestions}
+              suggestionsLabel="Fra eget lag:"
+              otherGroups={otherTeamPlayerGroups}
               highlightedNames={match.keeperNames ?? []}
               highlightLabel="Keeper"
               onRemove={handleRemoveMatchPlayer}

@@ -103,6 +103,7 @@ export interface TeamRecord {
   showScorerInEventsForCoach?: boolean
   hideHistoricalMatches?: boolean
   showCoachNote?: boolean
+  allowPlayerLoans?: boolean
   createdAt: string
   updatedAt: string
 }

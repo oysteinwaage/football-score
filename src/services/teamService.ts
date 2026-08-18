@@ -164,6 +164,13 @@ export async function updateTeamShowCoachNote(teamId: string, showCoachNote: boo
   })
 }
 
+export async function updateTeamAllowPlayerLoans(teamId: string, allowPlayerLoans: boolean): Promise<void> {
+  await update(ref(requireDatabase(), `teams/${teamId}`), {
+    allowPlayerLoans,
+    updatedAt: new Date().toISOString(),
+  })
+}
+
 // Pensjonerer lagets offisielle lagsang. Flytter den eventuelt til "Andre sanger"
 // (med avspillingsstatistikk), og fjerner deretter sangfeltene fra laget og
 // brukernes avspillingsstatistikk for laget.

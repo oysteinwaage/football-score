@@ -17,18 +17,36 @@ import {
 } from '@mui/material'
 import { useState } from 'react'
 
+interface SuggestionGroup {
+  label: string
+  names: string[]
+}
+
 interface RosterCardProps {
   title: string
   names: string[]
   canEdit: boolean
   suggestions?: string[]
+  suggestionsLabel?: string
+  otherGroups?: SuggestionGroup[]
   highlightedNames?: string[]
   highlightLabel?: string
   onRemove: (name: string) => Promise<void>
   onAdd: (name: string) => Promise<void>
 }
 
-export function RosterCard({ title, names, canEdit, suggestions = [], highlightedNames = [], highlightLabel, onRemove, onAdd }: RosterCardProps) {
+export function RosterCard({
+  title,
+  names,
+  canEdit,
+  suggestions = [],
+  suggestionsLabel = 'Fra laget:',
+  otherGroups = [],
+  highlightedNames = [],
+  highlightLabel,
+  onRemove,
+  onAdd,
+}: RosterCardProps) {
   const [editing, setEditing] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
   const [newName, setNewName] = useState('')
@@ -108,7 +126,7 @@ export function RosterCard({ title, names, canEdit, suggestions = [], highlighte
             {suggestions.length > 0 && (
               <>
                 <Typography variant="body2" color="text.secondary">
-                  Fra laget:
+                  {suggestionsLabel}
                 </Typography>
                 <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
                   {suggestions.map((s) => (
@@ -117,6 +135,20 @@ export function RosterCard({ title, names, canEdit, suggestions = [], highlighte
                 </Stack>
               </>
             )}
+            {otherGroups.map((group) => (
+              group.names.length > 0 && (
+                <Stack key={group.label} spacing={1}>
+                  <Typography variant="body2" color="text.secondary">
+                    Fra {group.label}:
+                  </Typography>
+                  <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
+                    {group.names.map((s) => (
+                      <Chip key={s} label={s} variant="outlined" onClick={() => void handleAdd(s)} disabled={saving} />
+                    ))}
+                  </Stack>
+                </Stack>
+              )
+            ))}
             <TextField
               label="Nytt navn"
               value={newName}

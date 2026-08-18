@@ -27,7 +27,7 @@ import { Link as RouterLink } from 'react-router-dom'
 
 import { useAuth } from '../context/AuthContext'
 import { useCollection } from '../hooks/useRealtimeDatabase'
-import { updateTeamHideHistoricalMatches, updateTeamRequireScorerModal, updateTeamShowCoachNote, updateTeamShowScorerInEvents, updateTeamShowScorerInEventsForCoach } from '../services/teamService'
+import { updateTeamAllowPlayerLoans, updateTeamHideHistoricalMatches, updateTeamRequireScorerModal, updateTeamShowCoachNote, updateTeamShowScorerInEvents, updateTeamShowScorerInEventsForCoach } from '../services/teamService'
 import { deleteUserProfile, updateUserAccess, updateUserShowScorerInEvents } from '../services/userService'
 import { TeamRecord, UserProfile, UserRole } from '../types/domain'
 
@@ -198,6 +198,16 @@ export function AdminPage() {
                           />
                         }
                         label="Vis trener-notat"
+                        labelPlacement="start"
+                      />
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={team.allowPlayerLoans === true}
+                            onChange={() => void updateTeamAllowPlayerLoans(team.id, team.allowPlayerLoans !== true)}
+                          />
+                        }
+                        label="Spillere kan lånes bort til andre lag"
                         labelPlacement="start"
                       />
                     </Stack>

@@ -144,6 +144,7 @@ export function normalizeTeamRecord(value: unknown, id: string): TeamRecord {
     showScorerInEventsForCoach: source.showScorerInEventsForCoach === true,
     hideHistoricalMatches: source.hideHistoricalMatches === true,
     showCoachNote: source.showCoachNote !== false,
+    allowPlayerLoans: source.allowPlayerLoans === true,
     createdAt: typeof source.createdAt === 'string' ? source.createdAt : new Date(0).toISOString(),
     updatedAt: typeof source.updatedAt === 'string' ? source.updatedAt : new Date(0).toISOString(),
   }
