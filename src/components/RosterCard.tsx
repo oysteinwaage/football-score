@@ -139,7 +139,7 @@ export function RosterCard({
               group.names.length > 0 && (
                 <Stack key={group.label} spacing={1}>
                   <Typography variant="body2" color="text.secondary">
-                    Fra {group.label}:
+                    {group.label}:
                   </Typography>
                   <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
                     {group.names.map((s) => (

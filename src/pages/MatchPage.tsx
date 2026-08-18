@@ -44,6 +44,8 @@ import { deleteMatchPhoto, updateMatch, uploadMatchPhoto } from '../services/mat
 import { GoalAssist, GoalScorer, MatchEvent, MatchEventType, MatchRecord, MatchStatus, TeamRecord, UserRole } from '../types/domain'
 import { formatMatchTime, getLiveElapsedSeconds } from '../utils/matchClock'
 
+const OTHER_LOAN_PLAYER_NAMES = ['Alfred S']
+
 function firstName(name: string) {
   return name.split(' ')[0].toLowerCase()
 }
@@ -426,8 +428,9 @@ export function MatchPage() {
 
   const isMatchedTeamCoach = Boolean(
     profile &&
-      profile.roles.includes(UserRole.TRENER) &&
-      (team?.coachNames ?? []).some((coach) => firstName(coach) === firstName(profile.parentName)),
+      (profile.roles.includes(UserRole.ADMIN) ||
+        (profile.roles.includes(UserRole.TRENER) &&
+          (team?.coachNames ?? []).some((coach) => firstName(coach) === firstName(profile.parentName)))),
   )
 
   const handleSaveCoachNote = async () => {
@@ -466,10 +469,17 @@ export function MatchPage() {
   const otherTeamPlayerGroups = allTeams
     .filter((otherTeam) => otherTeam.id !== match.teamId && !otherTeam.retired && otherTeam.allowPlayerLoans === true)
     .map((otherTeam) => ({
-      label: otherTeam.name,
+      label: `Fra ${otherTeam.name}`,
       names: (otherTeam.playerNames ?? []).filter((name) => !matchPlayerNames.includes(name)),
     }))
     .filter((group) => group.names.length > 0)
+  const otherLoanPlayerNames = OTHER_LOAN_PLAYER_NAMES.filter(
+    (name) => !matchPlayerNames.includes(name) && !(team?.playerNames ?? []).includes(name),
+  )
+  const playerGroups = [
+    ...otherTeamPlayerGroups,
+    ...(otherLoanPlayerNames.length > 0 ? [{ label: 'Andre lånespillere', names: otherLoanPlayerNames }] : []),
+  ]
 
   const isScheduled = match.clock.status === MatchStatus.SCHEDULED
   const isFirstHalf = match.clock.status === MatchStatus.FIRST_HALF
@@ -593,7 +603,7 @@ export function MatchPage() {
               canEdit={canEditRoster}
               suggestions={playerSuggestions}
               suggestionsLabel="Fra eget lag:"
-              otherGroups={otherTeamPlayerGroups}
+              otherGroups={playerGroups}
               highlightedNames={match.keeperNames ?? []}
               highlightLabel="Keeper"
               onRemove={handleRemoveMatchPlayer}
