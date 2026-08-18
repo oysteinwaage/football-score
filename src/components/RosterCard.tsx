@@ -155,7 +155,6 @@ export function RosterCard({
               onChange={(e) => setNewName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && void handleAdd(newName)}
               fullWidth
-              autoFocus
             />
           </Stack>
         </DialogContent>
