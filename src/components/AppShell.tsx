@@ -7,6 +7,7 @@ import CheckRoundedIcon from '@mui/icons-material/CheckRounded'
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded'
 import ExpandLessRoundedIcon from '@mui/icons-material/ExpandLessRounded'
 import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded'
+import FeedbackRoundedIcon from '@mui/icons-material/FeedbackRounded'
 import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded'
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded'
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded'
@@ -16,6 +17,7 @@ import SportsSoccerRoundedIcon from '@mui/icons-material/SportsSoccerRounded'
 import {
   AppBar,
   Avatar,
+  Badge,
   Box,
   Button,
   Collapse,
@@ -43,7 +45,8 @@ import { Link as RouterLink, useLocation } from 'react-router-dom'
 
 import { useAuth } from '../context/AuthContext'
 import { useCollection } from '../hooks/useRealtimeDatabase'
-import { TeamRecord, TeamType, UserRole } from '../types/domain'
+import { FeedbackRecord, TeamRecord, TeamType, UserRole } from '../types/domain'
+import { FeedbackDialog } from './FeedbackDialog'
 import { InstallBanner } from './InstallBanner'
 
 const drawerWidth = 280
@@ -69,6 +72,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [lagCupOpen, setLagCupOpen] = useState(false)
   const [lagTestOpen, setLagTestOpen] = useState(false)
   const [shareModalOpen, setShareModalOpen] = useState(false)
+  const [feedbackDialogOpen, setFeedbackDialogOpen] = useState(false)
   const [copied, setCopied] = useState(false)
 
   const APP_URL = 'https://football-score-omega.vercel.app/'
@@ -85,6 +89,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const isDesktop = useMediaQuery(theme.breakpoints.up('md'))
   const { profile, signOutUser, photoUrlPending, acceptPhotoUrl, declinePhotoUrl } = useAuth()
   const { data: allTeams } = useCollection<TeamRecord>('teams')
+  const isAdmin = profile?.approved && profile.roles.includes(UserRole.ADMIN)
+  const { data: feedbackList } = useCollection<FeedbackRecord>(isAdmin ? 'feedback' : null)
+  const unreadFeedbackCount = feedbackList.filter((f) => !f.read).length
 
   const navigationItems = useMemo(() => {
     if (!profile?.approved) {
@@ -263,7 +270,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <ListItemText primary="Sanger" />
           </ListItemButton>
         )}
-        {profile?.approved && profile.roles.includes(UserRole.ADMIN) && (
+        {isAdmin && (
           <ListItemButton
             component={RouterLink}
             to="/admin"
@@ -271,7 +278,11 @@ export function AppShell({ children }: { children: ReactNode }) {
             onClick={() => setMobileOpen(false)}
             sx={{ borderRadius: 3, mb: 0.5 }}
           >
-            <ListItemIcon><AdminPanelSettingsRoundedIcon /></ListItemIcon>
+            <ListItemIcon>
+              <Badge badgeContent={unreadFeedbackCount} color="error">
+                <AdminPanelSettingsRoundedIcon />
+              </Badge>
+            </ListItemIcon>
             <ListItemText primary="Admin" />
           </ListItemButton>
         )}
@@ -297,6 +308,12 @@ export function AppShell({ children }: { children: ReactNode }) {
           >
             <ListItemIcon><ArchiveRoundedIcon /></ListItemIcon>
             <ListItemText primary="Pensjonerte lag" />
+          </ListItemButton>
+        )}
+        {profile?.approved && (
+          <ListItemButton onClick={() => { setFeedbackDialogOpen(true); setMobileOpen(false) }} sx={{ borderRadius: 3, mb: 0.5 }}>
+            <ListItemIcon><FeedbackRoundedIcon /></ListItemIcon>
+            <ListItemText primary="Send tilbakemelding" />
           </ListItemButton>
         )}
         <ListItemButton onClick={() => { setShareModalOpen(true); setMobileOpen(false) }} sx={{ borderRadius: 3, mb: 0.5 }}>
@@ -342,6 +359,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         </DialogActions>
       </Dialog>
 
+      <FeedbackDialog open={feedbackDialogOpen} onClose={() => setFeedbackDialogOpen(false)} />
+
       <Dialog open={shareModalOpen} onClose={() => setShareModalOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle>Del app'en</DialogTitle>
         <DialogContent>
@@ -378,7 +397,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         <Toolbar sx={{ gap: 2 }}>
           {!isDesktop && (
             <IconButton edge="start" onClick={() => setMobileOpen(true)}>
-              <MenuIcon />
+              <Badge badgeContent={isAdmin ? unreadFeedbackCount : 0} color="error">
+                <MenuIcon />
+              </Badge>
             </IconButton>
           )}
           <Box>

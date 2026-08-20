@@ -11,12 +11,18 @@ interface UseRealtimeState<T> {
   error: string | null
 }
 
-export function useCollection<T extends { id?: string }>(path: string): UseRealtimeState<Array<T & { id: string }>> {
+export function useCollection<T extends { id?: string }>(path: string | null): UseRealtimeState<Array<T & { id: string }>> {
   const [data, setData] = useState<Array<T & { id: string }>>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(Boolean(path))
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    if (!path) {
+      setData([])
+      setLoading(false)
+      return undefined
+    }
+
     if (!database) {
       setError(firebaseConfigError ?? 'Firebase er ikke konfigurert.')
       setLoading(false)

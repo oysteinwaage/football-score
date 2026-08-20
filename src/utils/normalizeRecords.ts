@@ -1,8 +1,10 @@
 import {
+  FeedbackType,
   MatchEventType,
   MatchStatus,
   TeamType,
   UserRole,
+  type FeedbackRecord,
   type GoalAssist,
   type GoalScorer,
   type MatchClock,
@@ -193,6 +195,19 @@ export function normalizeSongRecord(value: unknown, id: string): SongRecord {
   }
 }
 
+export function normalizeFeedbackRecord(value: unknown, id: string): FeedbackRecord {
+  const source = typeof value === 'object' && value !== null ? (value as Partial<FeedbackRecord>) : {}
+  return {
+    id,
+    userId: typeof source.userId === 'string' ? source.userId : '',
+    userName: typeof source.userName === 'string' ? source.userName : '',
+    type: Object.values(FeedbackType).includes(source.type as FeedbackType) ? (source.type as FeedbackType) : FeedbackType.ANNET,
+    message: typeof source.message === 'string' ? source.message : '',
+    read: source.read === true,
+    createdAt: typeof source.createdAt === 'string' ? source.createdAt : new Date(0).toISOString(),
+  }
+}
+
 export function normalizeByPath<T>(path: string, id: string, value: unknown): T & { id: string } {
   if (path === 'users' || path.startsWith('users/')) {
     return normalizeUserProfile(value, id) as unknown as T & { id: string }
@@ -208,6 +223,10 @@ export function normalizeByPath<T>(path: string, id: string, value: unknown): T 
 
   if (path === 'songs' || path.startsWith('songs/')) {
     return normalizeSongRecord(value, id) as unknown as T & { id: string }
+  }
+
+  if (path === 'feedback' || path.startsWith('feedback/')) {
+    return normalizeFeedbackRecord(value, id) as unknown as T & { id: string }
   }
 
   return { id, ...(value as object) } as T & { id: string }

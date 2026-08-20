@@ -20,6 +20,12 @@ export enum MatchStatus {
   FINISHED = 'FINISHED',
 }
 
+export enum FeedbackType {
+  FEIL = 'FEIL',
+  FORSLAG = 'FORSLAG',
+  ANNET = 'ANNET',
+}
+
 export enum MatchEventType {
   INFO = 'INFO',
   GOAL_HOME = 'GOAL_HOME',
@@ -139,6 +145,16 @@ export interface SongRecord {
   playCount?: number
   userPlays?: Record<string, number>
   addedBy?: string
+  createdAt: string
+}
+
+export interface FeedbackRecord {
+  id: string
+  userId: string
+  userName: string
+  type: FeedbackType
+  message: string
+  read: boolean
   createdAt: string
 }
 

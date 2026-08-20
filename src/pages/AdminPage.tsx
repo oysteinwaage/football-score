@@ -4,6 +4,7 @@ import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded'
 import {
   Alert,
   Avatar,
+  Badge,
   Box,
   Button,
   Card,
@@ -27,20 +28,30 @@ import { Link as RouterLink } from 'react-router-dom'
 
 import { useAuth } from '../context/AuthContext'
 import { useCollection } from '../hooks/useRealtimeDatabase'
+import { deleteFeedback, markFeedbackRead } from '../services/feedbackService'
 import { updateTeamAllowPlayerLoans, updateTeamHideHistoricalMatches, updateTeamRequireScorerModal, updateTeamShowCoachNote, updateTeamShowScorerInEvents, updateTeamShowScorerInEventsForCoach } from '../services/teamService'
 import { deleteUserProfile, updateUserAccess, updateUserShowScorerInEvents } from '../services/userService'
-import { TeamRecord, UserProfile, UserRole } from '../types/domain'
+import { FeedbackRecord, FeedbackType, TeamRecord, UserProfile, UserRole } from '../types/domain'
+
+const feedbackTypeLabels: Record<FeedbackType, string> = {
+  [FeedbackType.FEIL]: 'Feil / problem',
+  [FeedbackType.FORSLAG]: 'Forbedringsforslag',
+  [FeedbackType.ANNET]: 'Annet',
+}
 
 export function AdminPage() {
   const { profile } = useAuth()
   const { data: users, loading: usersLoading, error: usersError } = useCollection<UserProfile>('users')
   const { data: teams, loading: teamsLoading, error: teamsError } = useCollection<TeamRecord>('teams')
+  const { data: feedbackList, loading: feedbackLoading, error: feedbackError } = useCollection<FeedbackRecord>('feedback')
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [userPendingDeletion, setUserPendingDeletion] = useState<UserProfile | null>(null)
   const [deletingUser, setDeletingUser] = useState(false)
   const [expandedUserIds, setExpandedUserIds] = useState<Set<string>>(new Set())
   const [laginnstillingerExpanded, setLaginnstillingerExpanded] = useState(false)
+  const [tilbakemeldingerExpanded, setTilbakemeldingerExpanded] = useState(false)
+  const [feedbackPendingDeletion, setFeedbackPendingDeletion] = useState<FeedbackRecord | null>(null)
 
   const toggleExpanded = (userId: string) => {
     setExpandedUserIds((prev) => {
@@ -56,6 +67,12 @@ export function AdminPage() {
   const pendingUsers = useMemo(() => sortedUsers.filter((u) => !u.approved), [sortedUsers])
   const trenerUsers = useMemo(() => sortedUsers.filter((u) => u.approved && u.roles.includes(UserRole.TRENER)), [sortedUsers])
   const otherUsers = useMemo(() => sortedUsers.filter((u) => u.approved && !u.roles.includes(UserRole.TRENER)), [sortedUsers])
+
+  const sortedFeedback = useMemo(
+    () => [...feedbackList].sort((left, right) => right.createdAt.localeCompare(left.createdAt)),
+    [feedbackList],
+  )
+  const unreadFeedbackCount = useMemo(() => sortedFeedback.filter((f) => !f.read).length, [sortedFeedback])
 
   if (!profile?.roles.includes(UserRole.ADMIN)) {
     return <Alert severity="error">Denne siden er bare tilgjengelig for administratorer.</Alert>
@@ -119,12 +136,94 @@ export function AdminPage() {
     }
   }
 
+  const handleDeleteFeedback = async () => {
+    if (!feedbackPendingDeletion) {
+      return
+    }
+
+    try {
+      await deleteFeedback(feedbackPendingDeletion.id)
+      setFeedbackPendingDeletion(null)
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Kunne ikke slette tilbakemeldingen.')
+    }
+  }
+
   return (
     <Stack spacing={3}>
       <Typography variant="h4">Administrasjon</Typography>
       {statusMessage && <Alert severity="success">{statusMessage}</Alert>}
       {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
-      {(usersError || teamsError) && <Alert severity="error">{usersError ?? teamsError}</Alert>}
+      {(usersError || teamsError || feedbackError) && <Alert severity="error">{usersError ?? teamsError ?? feedbackError}</Alert>}
+
+      <Card>
+        <Box
+          onClick={() => setTilbakemeldingerExpanded((prev) => !prev)}
+          sx={{ px: 2, py: 1.5, cursor: 'pointer', userSelect: 'none' }}
+        >
+          <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
+            <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+              <Typography variant="h5">Tilbakemeldinger</Typography>
+              {unreadFeedbackCount > 0 && <Badge badgeContent={unreadFeedbackCount} color="error" />}
+            </Stack>
+            <ExpandMoreRoundedIcon
+              sx={{ transform: tilbakemeldingerExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}
+            />
+          </Stack>
+        </Box>
+        <Collapse in={tilbakemeldingerExpanded}>
+          <Divider />
+          <CardContent>
+            <Stack spacing={2}>
+              {feedbackLoading && <Alert severity="info">Laster tilbakemeldinger...</Alert>}
+              {!feedbackLoading && sortedFeedback.length === 0 && (
+                <Alert severity="info">Ingen tilbakemeldinger ennå.</Alert>
+              )}
+              {sortedFeedback.map((feedback, index, arr) => (
+                <Box key={feedback.id}>
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { sm: 'flex-start' }, justifyContent: 'space-between' }}>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+                        <Chip
+                          label={feedbackTypeLabels[feedback.type]}
+                          size="small"
+                          color={feedback.type === FeedbackType.FEIL ? 'error' : 'primary'}
+                          variant="outlined"
+                        />
+                        {!feedback.read && <Chip label="Ny" size="small" color="error" />}
+                        <Typography variant="caption" color="text.secondary">
+                          {feedback.userName} · {new Date(feedback.createdAt).toLocaleString('no-NO')}
+                        </Typography>
+                      </Stack>
+                      <Typography sx={{ mt: 0.5, whiteSpace: 'pre-wrap' }}>{feedback.message}</Typography>
+                    </Box>
+                    <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={feedback.read}
+                            onChange={() => void markFeedbackRead(feedback.id, !feedback.read)}
+                          />
+                        }
+                        label="Lest"
+                        labelPlacement="start"
+                      />
+                      <IconButton
+                        color="error"
+                        aria-label="Slett tilbakemelding"
+                        onClick={() => setFeedbackPendingDeletion(feedback)}
+                      >
+                        <DeleteOutlineRoundedIcon />
+                      </IconButton>
+                    </Stack>
+                  </Stack>
+                  {index < arr.length - 1 && <Divider sx={{ mt: 2 }} />}
+                </Box>
+              ))}
+            </Stack>
+          </CardContent>
+        </Collapse>
+      </Card>
 
       <Card>
         <Box
@@ -397,6 +496,24 @@ export function AdminPage() {
           </Button>
           <Button color="error" variant="contained" onClick={() => void handleDeleteUser()} disabled={deletingUser}>
             {deletingUser ? 'Sletter...' : 'Bekreft sletting'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(feedbackPendingDeletion)}
+        onClose={() => setFeedbackPendingDeletion(null)}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>Slett tilbakemelding</DialogTitle>
+        <DialogContent>
+          <Typography>Er du sikker på at du vil slette denne tilbakemeldingen?</Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, pt: 0 }}>
+          <Button onClick={() => setFeedbackPendingDeletion(null)}>Avbryt</Button>
+          <Button color="error" variant="contained" onClick={() => void handleDeleteFeedback()}>
+            Bekreft sletting
           </Button>
         </DialogActions>
       </Dialog>
