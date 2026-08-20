@@ -7,6 +7,7 @@ import {
   Checkbox,
   Chip,
   FormControlLabel,
+  Link,
   Stack,
   Typography,
 } from '@mui/material'
@@ -14,6 +15,7 @@ import {
 import { useEffect, useMemo, useState } from 'react'
 import { Link as RouterLink } from 'react-router-dom'
 
+import { FeedbackDialog } from '../components/FeedbackDialog'
 import { useAuth } from '../context/AuthContext'
 import { useCollection } from '../hooks/useRealtimeDatabase'
 import { deleteUserProfile, updateUserAccess } from '../services/userService'
@@ -49,6 +51,7 @@ export function WelcomePage() {
   const [approvalSubmitting, setApprovalSubmitting] = useState(false)
   const [approvalError, setApprovalError] = useState<string | null>(null)
   const [approvalTeamIds, setApprovalTeamIds] = useState<string[]>([])
+  const [feedbackDialogOpen, setFeedbackDialogOpen] = useState(false)
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -307,6 +310,15 @@ export function WelcomePage() {
           </Stack>
         </CardContent>
       </Card>
+
+      <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
+        Har du et forbedringsforslag eller vil melde fra om en feil?{' '}
+        <Link component="button" onClick={() => setFeedbackDialogOpen(true)}>
+          Send oss en tilbakemelding
+        </Link>
+      </Typography>
+
+      <FeedbackDialog open={feedbackDialogOpen} onClose={() => setFeedbackDialogOpen(false)} />
     </Stack>
   )
 }
