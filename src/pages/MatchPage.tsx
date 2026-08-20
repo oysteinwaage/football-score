@@ -1046,6 +1046,16 @@ export function MatchPage() {
                 setAssistModalOpen(true)
               }}
             />
+            <Chip
+              label="Selvmål"
+              variant="outlined"
+              color="warning"
+              onClick={() => {
+                setScorerModalOpen(false)
+                setPendingScorer('Selvmål')
+                setAssistModalOpen(true)
+              }}
+            />
           </Stack>
         </DialogContent>
         <DialogActions sx={{ p: 3, pt: 0 }}>
