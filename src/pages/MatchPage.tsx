@@ -44,7 +44,7 @@ import { deleteMatchPhoto, updateMatch, uploadMatchPhoto } from '../services/mat
 import { GoalAssist, GoalScorer, MatchEvent, MatchEventType, MatchRecord, MatchStatus, TeamRecord, UserRole } from '../types/domain'
 import { formatMatchTime, getLiveElapsedSeconds } from '../utils/matchClock'
 
-const OTHER_LOAN_PLAYER_NAMES = ['Alfred S']
+const OTHER_LOAN_PLAYER_NAMES = ['Alfred S', 'Jakob', 'Håkon']
 
 function firstName(name: string) {
   return name.split(' ')[0].toLowerCase()
