@@ -6,6 +6,7 @@ import CloudDownloadRoundedIcon from '@mui/icons-material/CloudDownloadRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import MusicNoteRoundedIcon from '@mui/icons-material/MusicNoteRounded'
+import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded'
 import PhotoCameraRoundedIcon from '@mui/icons-material/PhotoCameraRounded'
 import {
   Alert,
@@ -43,6 +44,7 @@ import { deleteTeam, deleteTeamPhoto, incrementTeamSongPlayCount, retireTeam, re
 import { incrementUserSongPlay } from '../services/userService'
 import { MatchEventType, MatchRecord, MatchStatus, TeamRecord, UserRole } from '../types/domain'
 import { getMatchOutcomeBackground, getMatchOutcomeForTeam } from '../utils/matchCardColors'
+import { getSunoSongPageUrl } from '../utils/songUrl'
 
 export function TeamPage() {
   const { teamId = '' } = useParams()
@@ -131,16 +133,8 @@ export function TeamPage() {
     }
   }
 
-  const normalizeSongUrl = (url: string): string => {
-    const sunoMatch = url.match(/suno\.com\/song\/([a-f0-9-]+)/)
-    if (sunoMatch) {
-      return `https://cdn1.suno.ai/${sunoMatch[1]}.mp3`
-    }
-    return url
-  }
-
   const handleSaveSong = async () => {
-    const trimmed = normalizeSongUrl(songValue.trim())
+    const trimmed = songValue.trim()
     if (team?.songUrl && trimmed !== team.songUrl) {
       // Endring av eksisterende lagsang — spør om den gamle skal flyttes til Andre sanger
       setPendingSongChange({ url: trimmed || null, title: songTitleValue.trim() || undefined })
@@ -480,18 +474,45 @@ export function TeamPage() {
                 )}
               </Stack>
 
-              <Box
-                component="audio"
-                controls
-                src={team.songUrl}
-                sx={{ width: '100%' }}
-                onPlay={() => {
+              {(() => {
+                const sunoSongUrl = getSunoSongPageUrl(team.songUrl!)
+                const trackPlay = () => {
                   void incrementTeamSongPlayCount(teamId)
                   if (profile?.uid) {
                     void incrementUserSongPlay(profile.uid, teamId)
                   }
-                }}
-              />
+                }
+                if (sunoSongUrl) {
+                  return (
+                    <Stack spacing={1}>
+                      <Alert severity="info" sx={{ py: 0.5 }}>
+                        Suno tillater ikke lenger avspilling direkte i appen 😭 — sangen spilles av på suno.com i en ny fane.
+                      </Alert>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={<OpenInNewRoundedIcon />}
+                        onClick={() => {
+                          window.open(sunoSongUrl, '_blank', 'noopener,noreferrer')
+                          trackPlay()
+                        }}
+                        sx={{ alignSelf: 'flex-start' }}
+                      >
+                        Åpne på suno.com
+                      </Button>
+                    </Stack>
+                  )
+                }
+                return (
+                  <Box
+                    component="audio"
+                    controls
+                    src={team.songUrl}
+                    sx={{ width: '100%' }}
+                    onPlay={trackPlay}
+                  />
+                )
+              })()}
             </Stack>
           </CardContent>
         </Card>

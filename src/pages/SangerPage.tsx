@@ -1,6 +1,7 @@
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded'
+import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded'
 import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded'
 import {
   Alert,
@@ -36,6 +37,7 @@ import { addSong, deleteSong, incrementSongPlayCount } from '../services/songSer
 import { incrementTeamSongPlayCount } from '../services/teamService'
 import { incrementUserSongPlay } from '../services/userService'
 import { SongRecord, TeamRecord, UserProfile, UserRole } from '../types/domain'
+import { getSunoSongPageUrl } from '../utils/songUrl'
 
 type PlayCountModalData = {
   title: string
@@ -142,8 +144,10 @@ function PlaylistRow({
 }) {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const [audioPlaying, setAudioPlaying] = useState(false)
+  const sunoSongUrl = getSunoSongPageUrl(url)
 
   useEffect(() => {
+    if (sunoSongUrl) return
     const audio = audioRef.current
     if (!audio) return
     if (isActive) {
@@ -151,9 +155,19 @@ function PlaylistRow({
     } else {
       audio.pause()
     }
-  }, [isActive])
+  }, [isActive, sunoSongUrl])
+
+  const openSunoTab = () => {
+    window.open(sunoSongUrl!, '_blank', 'noopener,noreferrer')
+    onStarted?.()
+  }
 
   const handlePlayPauseClick = () => {
+    if (sunoSongUrl) {
+      if (!isActive) onActivate()
+      openSunoTab()
+      return
+    }
     if (!isActive) {
       onActivate()
       return
@@ -184,7 +198,18 @@ function PlaylistRow({
             <PlayArrowRoundedIcon />
           </IconButton>
         )}
-        {isActive && (
+        {isActive && sunoSongUrl && (
+          <IconButton
+            size="small"
+            onClick={openSunoTab}
+            color="primary"
+            sx={{ flexShrink: 0 }}
+            aria-label="Åpne på suno.com"
+          >
+            <OpenInNewRoundedIcon fontSize="small" />
+          </IconButton>
+        )}
+        {isActive && !sunoSongUrl && (
           <Box sx={{ flexShrink: 0, p: '5px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30 }}>
             <EqualizerBars playing={audioPlaying} />
           </Box>
@@ -224,28 +249,50 @@ function PlaylistRow({
       </Stack>
       <Collapse in={isActive} unmountOnExit={false}>
         <Box sx={{ px: 2, pb: 1.5 }}>
-          <Box
-            component="audio"
-            ref={audioRef}
-            controls
-            src={url}
-            preload="none"
-            sx={{ width: '100%' }}
-            onPlay={() => {
-              setAudioPlaying(true)
-              const audio = audioRef.current
-              if (audio && audio.currentTime < 1) onStarted?.()
-            }}
-            onPause={() => setAudioPlaying(false)}
-            onEnded={() => {
-              setAudioPlaying(false)
-              if (audioRef.current) audioRef.current.currentTime = 0
-              onEnded?.()
-            }}
-          />
+          {sunoSongUrl ? (
+            <Stack spacing={1}>
+              <Alert severity="info" sx={{ py: 0.5 }}>
+                Suno tillater ikke lenger avspilling direkte i appen 😭 — sangen spilles av på suno.com i en ny fane.
+              </Alert>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<OpenInNewRoundedIcon />}
+                onClick={openSunoTab}
+                sx={{ alignSelf: 'flex-start' }}
+              >
+                Åpne på suno.com
+              </Button>
+            </Stack>
+          ) : (
+            <Box
+              component="audio"
+              ref={audioRef}
+              controls
+              src={url}
+              preload="none"
+              sx={{ width: '100%' }}
+              onPlay={() => {
+                setAudioPlaying(true)
+                const audio = audioRef.current
+                if (audio && audio.currentTime < 1) onStarted?.()
+              }}
+              onPause={() => setAudioPlaying(false)}
+              onEnded={() => {
+                setAudioPlaying(false)
+                if (audioRef.current) audioRef.current.currentTime = 0
+                onEnded?.()
+              }}
+            />
+          )}
           {nextTitle && (
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-              Neste sang: {nextTitle}
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+              <span>Neste sang: {nextTitle}</span>
+              {sunoSongUrl && onEnded && (
+                <Button size="small" onClick={onEnded} sx={{ minWidth: 0, py: 0 }}>
+                  Spill neste
+                </Button>
+              )}
             </Typography>
           )}
         </Box>

@@ -10,12 +10,6 @@ function requireDatabase() {
   return database
 }
 
-function normalizeSongUrl(url: string): string {
-  const sunoMatch = url.match(/suno\.com\/song\/([a-f0-9-]+)/)
-  if (sunoMatch) return `https://cdn1.suno.ai/${sunoMatch[1]}.mp3`
-  return url
-}
-
 export async function addSong(title: string, url: string, addedBy?: string): Promise<SongRecord> {
   const db = requireDatabase()
   const songRef = push(ref(db, 'songs'))
@@ -26,7 +20,7 @@ export async function addSong(title: string, url: string, addedBy?: string): Pro
   const song: SongRecord = {
     id,
     title: title.trim(),
-    url: normalizeSongUrl(url.trim()),
+    url: url.trim(),
     ...(addedBy ? { addedBy } : {}),
     createdAt: new Date().toISOString(),
   }
