@@ -22,7 +22,7 @@ import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useCollection } from '../hooks/useRealtimeDatabase'
 import { deleteSelfFromAuth, deleteUserProfile, updateUserAccess } from '../services/userService'
-import { TeamRecord, UserRole } from '../types/domain'
+import { PlayerRecord, TeamRecord, UserRole } from '../types/domain'
 
 const roleLabels: Record<UserRole, string> = {
   [UserRole.ADMIN]: 'Admin',
@@ -35,6 +35,7 @@ const roleLabels: Record<UserRole, string> = {
 export function ProfilePage() {
   const { profile } = useAuth()
   const { data: allTeams } = useCollection<TeamRecord>('teams')
+  const { data: allPlayers } = useCollection<PlayerRecord>('players')
   const [selectedTeamIds, setSelectedTeamIds] = useState<string[] | null>(null)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -47,6 +48,7 @@ export function ProfilePage() {
 
   const canEditTeams = profile.roles.includes(UserRole.ADMIN) || profile.roles.includes(UserRole.TRENER)
   const currentTeamIds = selectedTeamIds ?? profile.teamIds
+  const linkedChildren = allPlayers.filter((p) => profile.childPlayerIds?.[p.id])
 
   const toggleTeam = (teamId: string) => {
     setSaveSuccess(false)
@@ -115,6 +117,13 @@ export function ProfilePage() {
             <Stack spacing={1}>
               <Typography variant="subtitle2" color="text.secondary">Barn</Typography>
               <Typography>{profile.childName}</Typography>
+              {linkedChildren.length > 0 && (
+                <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+                  {linkedChildren.map((child) => (
+                    <Chip key={child.id} label={child.name} size="small" color="primary" variant="outlined" />
+                  ))}
+                </Stack>
+              )}
             </Stack>
 
             <Stack spacing={1}>

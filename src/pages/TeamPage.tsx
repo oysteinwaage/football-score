@@ -42,7 +42,7 @@ import { fetchFotballCalendar } from '../services/fotballCalendar'
 import { createMatch, deleteMatch, importFixtures, updateMatch } from '../services/matchService'
 import { deleteTeam, deleteTeamPhoto, incrementTeamSongPlayCount, retireTeam, retireTeamSong, updateTeamHalfDuration, updateTeamName, updateTeamNumberOfHalves, updateTeamRoster, updateTeamSong, uploadTeamPhoto } from '../services/teamService'
 import { incrementUserSongPlay } from '../services/userService'
-import { MatchEventType, MatchRecord, MatchStatus, TeamRecord, UserRole } from '../types/domain'
+import { MatchEventType, MatchRecord, MatchStatus, PlayerRecord, TeamRecord, UserProfile, UserRole } from '../types/domain'
 import { getMatchOutcomeBackground, getMatchOutcomeForTeam } from '../utils/matchCardColors'
 import { getSunoSongPageUrl } from '../utils/songUrl'
 
@@ -52,6 +52,8 @@ export function TeamPage() {
   const { profile } = useAuth()
   const { data: team, loading, error } = useDocument<TeamRecord>(teamId ? `teams/${teamId}` : null)
   const { data: matches, loading: matchesLoading } = useCollection<MatchRecord>('matches')
+  const { data: users } = useCollection<UserProfile>('users')
+  const { data: allPlayers } = useCollection<PlayerRecord>('players')
   const [editingName, setEditingName] = useState(false)
   const [nameValue, setNameValue] = useState('')
   const [cupNameValue, setCupNameValue] = useState('')
@@ -90,6 +92,23 @@ export function TeamPage() {
   const teamMatches = useMemo(
     () => matches.filter((match) => match.teamId === teamId).sort((left, right) => left.startsAt.localeCompare(right.startsAt)),
     [matches, teamId],
+  )
+
+  const registeredCoachOptions = useMemo(() => {
+    const trenerFirstNames = Array.from(
+      new Set(users.filter((u) => u.roles.includes(UserRole.TRENER)).map((u) => u.parentName.split(' ')[0])),
+    )
+    return trenerFirstNames
+      .filter((name) => !(team?.coachNames ?? []).includes(name))
+      .sort((a, b) => a.localeCompare(b, 'no'))
+  }, [users, team?.coachNames])
+
+  const registeredPlayerOptions = useMemo(
+    () => allPlayers
+      .map((p) => p.name)
+      .filter((name) => !(team?.playerNames ?? []).includes(name))
+      .sort((a, b) => a.localeCompare(b, 'no')),
+    [allPlayers, team?.playerNames],
   )
 
   const isTrenerOrAdmin = canEditRoster
@@ -701,6 +720,8 @@ export function TeamPage() {
             title="Trenere"
             names={team.coachNames}
             canEdit={canEditRoster && !team.retired}
+            registeredOptions={registeredCoachOptions}
+            registeredOptionsLabel="Velg trener"
             onRemove={handleRemoveCoach}
             onAdd={handleAddCoach}
           />
@@ -710,6 +731,8 @@ export function TeamPage() {
             title="Spillere"
             names={team.playerNames}
             canEdit={canEditRoster && !team.retired}
+            registeredOptions={registeredPlayerOptions}
+            registeredOptionsLabel="Velg spiller"
             onRemove={handleRemovePlayer}
             onAdd={handleAddPlayer}
           />

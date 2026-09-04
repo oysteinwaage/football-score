@@ -21,6 +21,7 @@ import {
   IconButton,
   Stack,
   Switch,
+  TextField,
   Typography,
 } from '@mui/material'
 import { useMemo, useState } from 'react'
@@ -29,9 +30,11 @@ import { Link as RouterLink } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useCollection } from '../hooks/useRealtimeDatabase'
 import { deleteFeedback, markFeedbackRead } from '../services/feedbackService'
+import { createPlayer, deletePlayer, updatePlayerParents } from '../services/playerService'
 import { updateTeamAllowPlayerLoans, updateTeamHideHistoricalMatches, updateTeamRequireScorerModal, updateTeamShowCoachNote, updateTeamShowScorerInEvents, updateTeamShowScorerInEventsForCoach } from '../services/teamService'
 import { deleteUserProfile, updateUserAccess, updateUserShowScorerInEvents } from '../services/userService'
-import { FeedbackRecord, FeedbackType, TeamRecord, UserProfile, UserRole } from '../types/domain'
+import { FeedbackRecord, FeedbackType, PlayerRecord, TeamRecord, TeamType, UserProfile, UserRole } from '../types/domain'
+import { OTHER_LOAN_PLAYER_NAMES } from './MatchPage'
 
 const feedbackTypeLabels: Record<FeedbackType, string> = {
   [FeedbackType.FEIL]: 'Feil / problem',
@@ -44,6 +47,7 @@ export function AdminPage() {
   const { data: users, loading: usersLoading, error: usersError } = useCollection<UserProfile>('users')
   const { data: teams, loading: teamsLoading, error: teamsError } = useCollection<TeamRecord>('teams')
   const { data: feedbackList, loading: feedbackLoading, error: feedbackError } = useCollection<FeedbackRecord>('feedback')
+  const { data: players, loading: playersLoading, error: playersError } = useCollection<PlayerRecord>('players')
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [userPendingDeletion, setUserPendingDeletion] = useState<UserProfile | null>(null)
@@ -52,12 +56,27 @@ export function AdminPage() {
   const [laginnstillingerExpanded, setLaginnstillingerExpanded] = useState(false)
   const [tilbakemeldingerExpanded, setTilbakemeldingerExpanded] = useState(false)
   const [feedbackPendingDeletion, setFeedbackPendingDeletion] = useState<FeedbackRecord | null>(null)
+  const [spillereExpanded, setSpillereExpanded] = useState(false)
+  const [expandedPlayerIds, setExpandedPlayerIds] = useState<Set<string>>(new Set())
+  const [playerPendingDeletion, setPlayerPendingDeletion] = useState<PlayerRecord | null>(null)
+  const [addPlayerOpen, setAddPlayerOpen] = useState(false)
+  const [newPlayerName, setNewPlayerName] = useState('')
+  const [seedingPlayers, setSeedingPlayers] = useState(false)
 
   const toggleExpanded = (userId: string) => {
     setExpandedUserIds((prev) => {
       const next = new Set(prev)
       if (next.has(userId)) next.delete(userId)
       else next.add(userId)
+      return next
+    })
+  }
+
+  const togglePlayerExpanded = (playerId: string) => {
+    setExpandedPlayerIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(playerId)) next.delete(playerId)
+      else next.add(playerId)
       return next
     })
   }
@@ -73,6 +92,8 @@ export function AdminPage() {
     [feedbackList],
   )
   const unreadFeedbackCount = useMemo(() => sortedFeedback.filter((f) => !f.read).length, [sortedFeedback])
+
+  const sortedPlayers = useMemo(() => [...players].sort((left, right) => left.name.localeCompare(right.name, 'no')), [players])
 
   if (!profile?.roles.includes(UserRole.ADMIN)) {
     return <Alert severity="error">Denne siden er bare tilgjengelig for administratorer.</Alert>
@@ -126,6 +147,16 @@ export function AdminPage() {
     setStatusMessage(null)
 
     try {
+      const linkedPlayers = players.filter((p) => p.parentIds?.includes(userPendingDeletion.id))
+      await Promise.all(
+        linkedPlayers.map((p) =>
+          updatePlayerParents(
+            p.id,
+            p.parentIds.filter((id) => id !== userPendingDeletion.id),
+            p.parentIds,
+          ),
+        ),
+      )
       await deleteUserProfile(userPendingDeletion.id)
       setStatusMessage('Brukerprofilen ble slettet.')
       setUserPendingDeletion(null)
@@ -149,12 +180,93 @@ export function AdminPage() {
     }
   }
 
+  const toggleParent = async (player: PlayerRecord, userId: string) => {
+    const previousParentIds = player.parentIds ?? []
+    const parentIds = previousParentIds.includes(userId)
+      ? previousParentIds.filter((id) => id !== userId)
+      : [...previousParentIds, userId]
+
+    try {
+      await updatePlayerParents(player.id, parentIds, previousParentIds)
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Kunne ikke oppdatere foreldrekoblingen.')
+    }
+  }
+
+  const handleAddPlayer = async () => {
+    const trimmed = newPlayerName.trim()
+    if (!trimmed) return
+
+    if (players.some((p) => p.name.trim().toLowerCase() === trimmed.toLowerCase())) {
+      setErrorMessage('Denne spilleren finnes allerede.')
+      return
+    }
+
+    try {
+      await createPlayer(trimmed)
+      setNewPlayerName('')
+      setAddPlayerOpen(false)
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Kunne ikke legge til spilleren.')
+    }
+  }
+
+  const handleDeletePlayer = async () => {
+    if (!playerPendingDeletion) return
+
+    try {
+      await deletePlayer(playerPendingDeletion.id, playerPendingDeletion.parentIds ?? [])
+      setPlayerPendingDeletion(null)
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Kunne ikke slette spilleren.')
+    }
+  }
+
+  const handleSeedPlayers = async () => {
+    setSeedingPlayers(true)
+    setErrorMessage(null)
+    setStatusMessage(null)
+
+    try {
+      const existingNames = new Set(players.map((p) => p.name.trim().toLowerCase()))
+      const namesToAdd: string[] = []
+      const addName = (name: string) => {
+        const trimmed = name.trim()
+        if (!trimmed) return
+        const key = trimmed.toLowerCase()
+        if (existingNames.has(key)) return
+        existingNames.add(key)
+        namesToAdd.push(trimmed)
+      }
+
+      teams
+        .filter((t) => !t.retired && (t.teamType ?? TeamType.SERIE) === TeamType.SERIE)
+        .forEach((team) => team.playerNames.forEach(addName))
+
+      OTHER_LOAN_PLAYER_NAMES.forEach(addName)
+
+      if (namesToAdd.length === 0) {
+        setStatusMessage('Alle spillere er allerede lagt inn.')
+        return
+      }
+
+      await Promise.all(namesToAdd.map((name) => createPlayer(name)))
+      setStatusMessage(`La til ${namesToAdd.length} spiller${namesToAdd.length === 1 ? '' : 'e'}.`)
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Kunne ikke fylle inn spillere.')
+    } finally {
+      setSeedingPlayers(false)
+    }
+  }
+
   return (
     <Stack spacing={3}>
       <Typography variant="h4">Administrasjon</Typography>
       {statusMessage && <Alert severity="success">{statusMessage}</Alert>}
       {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
-      {(usersError || teamsError || feedbackError) && <Alert severity="error">{usersError ?? teamsError ?? feedbackError}</Alert>}
+      {(usersError || teamsError || feedbackError || playersError) && (
+        <Alert severity="error">{usersError ?? teamsError ?? feedbackError ?? playersError}</Alert>
+      )}
 
       <Card>
         <Box
@@ -319,6 +431,114 @@ export function AdminPage() {
         </Collapse>
       </Card>
 
+      <Card>
+        <Box
+          onClick={() => setSpillereExpanded((prev) => !prev)}
+          sx={{ px: 2, py: 1.5, cursor: 'pointer', userSelect: 'none' }}
+        >
+          <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
+            <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+              <Typography variant="h5">Spillere</Typography>
+              <Chip label={players.length} size="small" variant="outlined" />
+            </Stack>
+            <ExpandMoreRoundedIcon
+              sx={{ transform: spillereExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}
+            />
+          </Stack>
+        </Box>
+        <Collapse in={spillereExpanded}>
+          <Divider />
+          <CardContent>
+            <Stack spacing={2}>
+              {playersLoading && <Alert severity="info">Laster spillere...</Alert>}
+
+              <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
+                <Button
+                  variant="outlined"
+                  onClick={() => void handleSeedPlayers()}
+                  disabled={seedingPlayers || teamsLoading}
+                >
+                  {seedingPlayers ? 'Fyller inn...' : 'Fyll inn fra aktive serielag'}
+                </Button>
+                <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => setAddPlayerOpen(true)}>
+                  Legg til spiller
+                </Button>
+              </Stack>
+
+              {!playersLoading && sortedPlayers.length === 0 && (
+                <Alert severity="info">Ingen spillere registrert ennå.</Alert>
+              )}
+
+              {sortedPlayers.map((player) => {
+                const isExpanded = expandedPlayerIds.has(player.id)
+                const parentNames = (player.parentIds ?? [])
+                  .map((id) => users.find((u) => u.id === id)?.parentName)
+                  .filter((name): name is string => Boolean(name))
+
+                return (
+                  <Card key={player.id} variant="outlined">
+                    <Box
+                      onClick={() => togglePlayerExpanded(player.id)}
+                      sx={{ px: 2, py: 1.5, cursor: 'pointer', userSelect: 'none' }}
+                    >
+                      <Stack direction="row" spacing={2} sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignItems: { sm: 'center' }, minWidth: 0 }}>
+                          <Typography sx={{ fontWeight: 600 }}>{player.name}</Typography>
+                          <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: 'wrap' }}>
+                            {parentNames.length > 0 ? (
+                              parentNames.map((name) => <Chip key={name} label={name} size="small" variant="outlined" />)
+                            ) : (
+                              <Typography variant="caption" color="text.secondary">Ingen foreldre koblet</Typography>
+                            )}
+                          </Stack>
+                        </Stack>
+                        <ExpandMoreRoundedIcon
+                          sx={{ flexShrink: 0, transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}
+                        />
+                      </Stack>
+                    </Box>
+
+                    <Collapse in={isExpanded}>
+                      <Divider />
+                      <CardContent>
+                        <Stack spacing={2}>
+                          <Stack direction="row" sx={{ justifyContent: 'flex-end' }}>
+                            <IconButton
+                              color="error"
+                              aria-label="Slett spiller"
+                              onClick={() => setPlayerPendingDeletion(player)}
+                            >
+                              <DeleteOutlineRoundedIcon />
+                            </IconButton>
+                          </Stack>
+                          <Box>
+                            <Typography variant="subtitle2" gutterBottom>Foreldre</Typography>
+                            <Stack>
+                              {sortedUsers.map((user) => (
+                                <FormControlLabel
+                                  key={user.id}
+                                  control={
+                                    <Checkbox
+                                      checked={(player.parentIds ?? []).includes(user.id)}
+                                      onChange={() => void toggleParent(player, user.id)}
+                                    />
+                                  }
+                                  label={`${user.parentName} (${user.childName})`}
+                                />
+                              ))}
+                            </Stack>
+                          </Box>
+                        </Stack>
+                      </CardContent>
+                    </Collapse>
+                  </Card>
+                )
+              })}
+            </Stack>
+          </CardContent>
+        </Collapse>
+      </Card>
+
       <Card
         component={RouterLink}
         to="/create-team"
@@ -339,6 +559,9 @@ export function AdminPage() {
         {(() => {
           const renderUserCard = (user: UserProfile) => {
             const isExpanded = expandedUserIds.has(user.id)
+            const linkedChildNames = players
+              .filter((p) => user.childPlayerIds?.[p.id])
+              .map((p) => p.name)
             return (
               <Card key={user.id}>
                 <Box
@@ -356,6 +579,9 @@ export function AdminPage() {
                         <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>{user.childName}</Typography>
                       </Stack>
                       <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: 'wrap' }}>
+                        {linkedChildNames.map((name) => (
+                          <Chip key={name} label={name} size="small" variant="outlined" />
+                        ))}
                         {user.roles.map((role) => (
                           <Chip key={role} label={role} size="small" color="primary" variant="outlined" />
                         ))}
@@ -382,6 +608,13 @@ export function AdminPage() {
                             <Typography color="text.secondary">
                               Barn: {user.childName} · {user.email ?? 'Ingen e-post'}
                             </Typography>
+                            <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: 'wrap', mt: 0.5 }}>
+                              {linkedChildNames.length > 0 ? (
+                                linkedChildNames.map((name) => <Chip key={name} label={name} size="small" variant="outlined" />)
+                              ) : (
+                                <Typography variant="caption" color="text.secondary">Ingen spillere koblet</Typography>
+                              )}
+                            </Stack>
                           </Box>
                         </Stack>
                         <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'flex-end' }}>
@@ -513,6 +746,49 @@ export function AdminPage() {
         <DialogActions sx={{ p: 3, pt: 0 }}>
           <Button onClick={() => setFeedbackPendingDeletion(null)}>Avbryt</Button>
           <Button color="error" variant="contained" onClick={() => void handleDeleteFeedback()}>
+            Bekreft sletting
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={addPlayerOpen} onClose={() => setAddPlayerOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Legg til spiller</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            label="Navn"
+            value={newPlayerName}
+            onChange={(e) => setNewPlayerName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && void handleAddPlayer()}
+            fullWidth
+            sx={{ mt: 1 }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 3, pt: 0 }}>
+          <Button onClick={() => setAddPlayerOpen(false)}>Avbryt</Button>
+          <Button variant="contained" onClick={() => void handleAddPlayer()} disabled={!newPlayerName.trim()}>
+            Legg til
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(playerPendingDeletion)}
+        onClose={() => setPlayerPendingDeletion(null)}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>Slett spiller</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Er du sikker på at du vil slette spilleren
+            {playerPendingDeletion ? ` ${playerPendingDeletion.name}` : ''}
+            ?
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, pt: 0 }}>
+          <Button onClick={() => setPlayerPendingDeletion(null)}>Avbryt</Button>
+          <Button color="error" variant="contained" onClick={() => void handleDeletePlayer()}>
             Bekreft sletting
           </Button>
         </DialogActions>

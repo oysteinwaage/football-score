@@ -2,6 +2,7 @@ import CheckBoxOutlineBlankRoundedIcon from '@mui/icons-material/CheckBoxOutline
 import CheckBoxRoundedIcon from '@mui/icons-material/CheckBoxRounded'
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Card,
@@ -22,7 +23,7 @@ import { useAuth } from '../context/AuthContext'
 import { useCollection } from '../hooks/useRealtimeDatabase'
 import { createTeam } from '../services/teamService'
 import { updateUserAccess } from '../services/userService'
-import { TeamType, UserProfile, UserRole } from '../types/domain'
+import { PlayerRecord, TeamType, UserProfile, UserRole } from '../types/domain'
 
 function splitLines(value: string) {
   return value
@@ -35,14 +36,21 @@ function firstName(name: string) {
   return name.split(' ')[0].toLowerCase()
 }
 
+function firstNameRaw(name: string) {
+  return name.split(' ')[0]
+}
+
 export function CreateTeamPage() {
   const { profile } = useAuth()
   const navigate = useNavigate()
   const { data: users } = useCollection<UserProfile>('users')
+  const { data: registeredPlayers } = useCollection<PlayerRecord>('players')
   const [teamName, setTeamName] = useState('')
   const [teamType, setTeamType] = useState<TeamType>(TeamType.SERIE)
   const [cupName, setCupName] = useState('')
   const [coachNames, setCoachNames] = useState('')
+  const [selectedCoachUserIds, setSelectedCoachUserIds] = useState<string[]>([])
+  const [selectedPlayerNames, setSelectedPlayerNames] = useState<string[]>([])
   const [playerNames, setPlayerNames] = useState('')
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set())
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -52,9 +60,30 @@ export function CreateTeamPage() {
     [users],
   )
 
+  const registeredPlayerOptions = useMemo(
+    () => [...registeredPlayers].map((p) => p.name).sort((a, b) => a.localeCompare(b, 'no')),
+    [registeredPlayers],
+  )
+
+  const trenerUsers = useMemo(
+    () => users.filter((u) => u.roles.includes(UserRole.TRENER)).sort((a, b) => a.parentName.localeCompare(b.parentName, 'no')),
+    [users],
+  )
+
+  const selectedCoachUsers = useMemo(
+    () => trenerUsers.filter((u) => selectedCoachUserIds.includes(u.id)),
+    [trenerUsers, selectedCoachUserIds],
+  )
+
   useEffect(() => {
-    const coachFirstNames = new Set(splitLines(coachNames).map((n) => firstName(n)))
-    const playerNameSet = new Set(splitLines(playerNames).map((n) => n.toLowerCase()))
+    const coachFirstNames = new Set([
+      ...selectedCoachUsers.map((u) => firstName(u.parentName)),
+      ...splitLines(coachNames).map((n) => firstName(n)),
+    ])
+    const playerNameSet = new Set([
+      ...selectedPlayerNames.map((n) => n.toLowerCase()),
+      ...splitLines(playerNames).map((n) => n.toLowerCase()),
+    ])
 
     const autoSelected = new Set<string>()
     for (const user of users) {
@@ -68,9 +97,10 @@ export function CreateTeamPage() {
         }
       }
     }
+    selectedCoachUserIds.forEach((id) => autoSelected.add(id))
 
     setSelectedUserIds(autoSelected)
-  }, [coachNames, playerNames, users])
+  }, [coachNames, playerNames, selectedCoachUserIds, selectedCoachUsers, selectedPlayerNames, users])
 
   if (!profile?.roles.includes(UserRole.ADMIN)) {
     return <Alert severity="error">Denne siden er bare tilgjengelig for administratorer.</Alert>
@@ -86,8 +116,15 @@ export function CreateTeamPage() {
   }
 
   const isAutoMatched = (user: UserProfile): boolean => {
-    const coachFirstNames = new Set(splitLines(coachNames).map((n) => firstName(n)))
-    const playerNameSet = new Set(splitLines(playerNames).map((n) => n.toLowerCase()))
+    const coachFirstNames = new Set([
+      ...selectedCoachUsers.map((u) => firstName(u.parentName)),
+      ...splitLines(coachNames).map((n) => firstName(n)),
+    ])
+    const playerNameSet = new Set([
+      ...selectedPlayerNames.map((n) => n.toLowerCase()),
+      ...splitLines(playerNames).map((n) => n.toLowerCase()),
+    ])
+    if (selectedCoachUserIds.includes(user.id)) return true
     if (user.roles.includes(UserRole.TRENER) && coachFirstNames.has(firstName(user.parentName))) return true
     if (user.childName) {
       const childParts = user.childName.toLowerCase().split(/\s+/).filter(Boolean)
@@ -105,8 +142,8 @@ export function CreateTeamPage() {
         name: teamName.trim(),
         teamType,
         cupName: teamType === TeamType.CUP ? cupName.trim() : undefined,
-        coachNames: splitLines(coachNames),
-        playerNames: splitLines(playerNames),
+        coachNames: Array.from(new Set([...selectedCoachUsers.map((u) => firstNameRaw(u.parentName)), ...splitLines(coachNames)])),
+        playerNames: Array.from(new Set([...selectedPlayerNames, ...splitLines(playerNames)])),
       })
 
       await Promise.all(
@@ -159,21 +196,50 @@ export function CreateTeamPage() {
                   required
                 />
               )}
+              <Autocomplete
+                multiple
+                options={trenerUsers}
+                value={selectedCoachUsers}
+                getOptionLabel={(u) => u.parentName}
+                isOptionEqualToValue={(option, value) => option.id === value.id}
+                onChange={(_, newValue) => setSelectedCoachUserIds(newValue.map((u) => u.id))}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Velg trenere"
+                    placeholder="Søk etter trener..."
+                    helperText="Kun brukere med Trener-rollen vises. Fornavnet legges inn som trenernavn på laget."
+                  />
+                )}
+              />
               <TextField
-                label="Trenere"
+                label="Andre trenere (fritekst)"
                 value={coachNames}
                 onChange={(e) => setCoachNames(e.target.value)}
                 multiline
                 minRows={4}
-                helperText="Skriv ett navn per linje eller skil med komma."
+                helperText="For trenere som ikke har fått Trener-rollen. Skriv ett navn per linje eller skil med komma."
+              />
+              <Autocomplete
+                multiple
+                options={registeredPlayerOptions}
+                value={selectedPlayerNames}
+                onChange={(_, newValue) => setSelectedPlayerNames(newValue)}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Velg registrerte spillere"
+                    placeholder="Søk etter spiller..."
+                  />
+                )}
               />
               <TextField
-                label="Spillere"
+                label="Andre spillere (fritekst)"
                 value={playerNames}
                 onChange={(e) => setPlayerNames(e.target.value)}
                 multiline
-                minRows={6}
-                helperText="Skriv ett navn per linje eller skil med komma."
+                minRows={4}
+                helperText="For spillere som ikke finnes i listen over. Skriv ett navn per linje eller skil med komma."
               />
 
               {sortedUsers.length > 0 && (

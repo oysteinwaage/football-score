@@ -79,6 +79,7 @@ export interface UserProfile {
   roles: UserRole[]
   teamIds: string[]
   approved: boolean
+  childPlayerIds?: Record<string, boolean>
   photoUrl?: string
   declinedPhotoUrl?: boolean
   showScorerInEvents?: boolean
@@ -156,6 +157,14 @@ export interface FeedbackRecord {
   message: string
   read: boolean
   createdAt: string
+}
+
+export interface PlayerRecord {
+  id: string
+  name: string
+  parentIds: string[]
+  createdAt: string
+  updatedAt: string
 }
 
 export interface ImportedFixture {

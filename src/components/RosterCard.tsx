@@ -2,6 +2,7 @@ import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import {
+  Autocomplete,
   Button,
   Card,
   CardContent,
@@ -31,6 +32,8 @@ interface RosterCardProps {
   otherGroups?: SuggestionGroup[]
   highlightedNames?: string[]
   highlightLabel?: string
+  registeredOptions?: string[]
+  registeredOptionsLabel?: string
   onRemove: (name: string) => Promise<void>
   onAdd: (name: string) => Promise<void>
 }
@@ -44,6 +47,8 @@ export function RosterCard({
   otherGroups = [],
   highlightedNames = [],
   highlightLabel,
+  registeredOptions = [],
+  registeredOptionsLabel = 'Velg fra registrerte',
   onRemove,
   onAdd,
 }: RosterCardProps) {
@@ -123,6 +128,17 @@ export function RosterCard({
         <DialogTitle>Legg til {title.toLowerCase()}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
+            {registeredOptions.length > 0 && (
+              <Autocomplete
+                options={registeredOptions}
+                value={null}
+                onChange={(_, newValue) => { if (newValue) void handleAdd(newValue) }}
+                disabled={saving}
+                renderInput={(params) => (
+                  <TextField {...params} label={registeredOptionsLabel} placeholder="Søk..." autoFocus />
+                )}
+              />
+            )}
             {suggestions.length > 0 && (
               <>
                 <Typography variant="body2" color="text.secondary">

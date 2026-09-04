@@ -11,6 +11,7 @@ import {
   type MatchEvent,
   type MatchRecord,
   type MatchScore,
+  type PlayerRecord,
   type SongRecord,
   type TeamRecord,
   type UserProfile,
@@ -110,6 +111,9 @@ export function normalizeUserProfile(value: unknown, id: string): UserProfile {
     roles: roles.length > 0 ? roles : [UserRole.FORELDER],
     teamIds: toStringArray(source.teamIds),
     approved: typeof source.approved === 'boolean' ? source.approved : false,
+    childPlayerIds: typeof source.childPlayerIds === 'object' && source.childPlayerIds !== null
+      ? Object.fromEntries(Object.entries(source.childPlayerIds).filter(([, v]) => v === true)) as Record<string, boolean>
+      : undefined,
     photoUrl: typeof source.photoUrl === 'string' ? source.photoUrl : undefined,
     declinedPhotoUrl: source.declinedPhotoUrl === true ? true : undefined,
     showScorerInEvents: source.showScorerInEvents === true ? true : undefined,
@@ -208,9 +212,24 @@ export function normalizeFeedbackRecord(value: unknown, id: string): FeedbackRec
   }
 }
 
+export function normalizePlayerRecord(value: unknown, id: string): PlayerRecord {
+  const source = typeof value === 'object' && value !== null ? (value as Partial<PlayerRecord>) : {}
+  return {
+    id,
+    name: typeof source.name === 'string' ? source.name : '',
+    parentIds: toStringArray(source.parentIds),
+    createdAt: typeof source.createdAt === 'string' ? source.createdAt : new Date(0).toISOString(),
+    updatedAt: typeof source.updatedAt === 'string' ? source.updatedAt : new Date(0).toISOString(),
+  }
+}
+
 export function normalizeByPath<T>(path: string, id: string, value: unknown): T & { id: string } {
   if (path === 'users' || path.startsWith('users/')) {
     return normalizeUserProfile(value, id) as unknown as T & { id: string }
+  }
+
+  if (path === 'players' || path.startsWith('players/')) {
+    return normalizePlayerRecord(value, id) as unknown as T & { id: string }
   }
 
   if (path === 'teams' || path.startsWith('teams/')) {
