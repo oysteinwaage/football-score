@@ -38,6 +38,7 @@ import { PhotoEditDialog } from '../components/PhotoEditDialog'
 import { RosterCard } from '../components/RosterCard'
 import { useAuth } from '../context/AuthContext'
 import { useCollection, useDocument } from '../hooks/useRealtimeDatabase'
+import { fetchCupManagerCalendar } from '../services/cupManagerCalendar'
 import { fetchFotballCalendar } from '../services/fotballCalendar'
 import { createMatch, deleteMatch, importFixtures, updateMatch } from '../services/matchService'
 import { deleteTeam, deleteTeamPhoto, incrementTeamSongPlayCount, retireTeam, retireTeamSong, updateTeamHalfDuration, updateTeamName, updateTeamNumberOfHalves, updateTeamRoster, updateTeamSong, uploadTeamPhoto } from '../services/teamService'
@@ -215,7 +216,10 @@ export function TeamPage() {
     setStatusMessage(null)
 
     try {
-      const fixtures = await fetchFotballCalendar(calendarUrl.trim())
+      const trimmedUrl = calendarUrl.trim()
+      const fixtures = trimmedUrl.includes('cupmanager.net')
+        ? await fetchCupManagerCalendar(trimmedUrl)
+        : await fetchFotballCalendar(trimmedUrl)
       const createdCount = await importFixtures(
         teamId,
         fixtures,
@@ -742,9 +746,9 @@ export function TeamPage() {
           <Card>
             <CardContent>
               <Stack spacing={2}>
-                <Typography variant="h6">Kalenderimport fra fotball.no</Typography>
+                <Typography variant="h6">Kalenderimport</Typography>
                 <Typography color="text.secondary">
-                  Lim inn en kalenderlenke for å opprette kamper automatisk på laget.
+                  Lim inn en kalenderlenke fra fotball.no eller cupmanager.net for å opprette kamper automatisk på laget.
                 </Typography>
                 <TextField
                   label="Kalender-URL"
