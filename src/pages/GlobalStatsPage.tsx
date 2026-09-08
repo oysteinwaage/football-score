@@ -17,6 +17,7 @@ import {
   TableCell,
   TableHead,
   TableRow,
+  TableSortLabel,
   Tabs,
   Typography,
 } from '@mui/material'
@@ -84,6 +85,8 @@ interface UserSongStats {
   totalPlays: number
 }
 
+type PlayerSortKey = 'matchesPlayed' | 'matchesMissed' | 'matchesBorrowed' | 'goals' | 'assists' | 'keeperMatches'
+
 function StatCard({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
   return (
     <Card>
@@ -109,6 +112,8 @@ export function GlobalStatsPage() {
   const [tab, setTab] = useState(0)
   const [expandedPlayer, setExpandedPlayer] = useState<string | null>(null)
   const [expandedCoach, setExpandedCoach] = useState<string | null>(null)
+  const [playerSortBy, setPlayerSortBy] = useState<PlayerSortKey>('matchesPlayed')
+  const [playerSortDir, setPlayerSortDir] = useState<'asc' | 'desc'>('desc')
 
   const canView = profile?.roles.some((r) => r === UserRole.ADMIN || r === UserRole.STATS)
 
@@ -264,6 +269,20 @@ export function GlobalStatsPage() {
       .sort((a, b) => b.matchesPlayed - a.matchesPlayed)
   }, [finishedMatches, relevantTeams, teamMap, matchesByTeam])
 
+  const sortedPlayerStats = useMemo(() => {
+    const dir = playerSortDir === 'asc' ? 1 : -1
+    return [...playerStats].sort((a, b) => dir * (a[playerSortBy] - b[playerSortBy]))
+  }, [playerStats, playerSortBy, playerSortDir])
+
+  const handlePlayerSort = (key: PlayerSortKey) => {
+    if (playerSortBy === key) {
+      setPlayerSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setPlayerSortBy(key)
+      setPlayerSortDir('desc')
+    }
+  }
+
   const coachStats: CoachGlobalStats[] = useMemo(() => {
     const coachNames = new Set<string>()
     for (const team of relevantTeams) {
@@ -362,16 +381,64 @@ export function GlobalStatsPage() {
                   <TableRow>
                     <TableCell>#</TableCell>
                     <TableCell>Spiller</TableCell>
-                    <TableCell align="right" title="Kamper spilt">Spilt</TableCell>
-                    <TableCell align="right" title="Kamper misset (på laget, ikke med)">Misset</TableCell>
-                    <TableCell align="right" title="Kamper lånt til andre lag">Lånt ut</TableCell>
-                    <TableCell align="right" title="Mål">Mål</TableCell>
-                    <TableCell align="right" title="Assist">Assist</TableCell>
-                    <TableCell align="right" title="Keepervakter">Keeper</TableCell>
+                    <TableCell align="right" title="Kamper spilt">
+                      <TableSortLabel
+                        active={playerSortBy === 'matchesPlayed'}
+                        direction={playerSortBy === 'matchesPlayed' ? playerSortDir : 'desc'}
+                        onClick={() => handlePlayerSort('matchesPlayed')}
+                      >
+                        Spilt
+                      </TableSortLabel>
+                    </TableCell>
+                    <TableCell align="right" title="Kamper misset (på laget, ikke med)">
+                      <TableSortLabel
+                        active={playerSortBy === 'matchesMissed'}
+                        direction={playerSortBy === 'matchesMissed' ? playerSortDir : 'desc'}
+                        onClick={() => handlePlayerSort('matchesMissed')}
+                      >
+                        Misset
+                      </TableSortLabel>
+                    </TableCell>
+                    <TableCell align="right" title="Kamper lånt til andre lag">
+                      <TableSortLabel
+                        active={playerSortBy === 'matchesBorrowed'}
+                        direction={playerSortBy === 'matchesBorrowed' ? playerSortDir : 'desc'}
+                        onClick={() => handlePlayerSort('matchesBorrowed')}
+                      >
+                        Lånt ut
+                      </TableSortLabel>
+                    </TableCell>
+                    <TableCell align="right" title="Mål">
+                      <TableSortLabel
+                        active={playerSortBy === 'goals'}
+                        direction={playerSortBy === 'goals' ? playerSortDir : 'desc'}
+                        onClick={() => handlePlayerSort('goals')}
+                      >
+                        Mål
+                      </TableSortLabel>
+                    </TableCell>
+                    <TableCell align="right" title="Assist">
+                      <TableSortLabel
+                        active={playerSortBy === 'assists'}
+                        direction={playerSortBy === 'assists' ? playerSortDir : 'desc'}
+                        onClick={() => handlePlayerSort('assists')}
+                      >
+                        Assist
+                      </TableSortLabel>
+                    </TableCell>
+                    <TableCell align="right" title="Keepervakter">
+                      <TableSortLabel
+                        active={playerSortBy === 'keeperMatches'}
+                        direction={playerSortBy === 'keeperMatches' ? playerSortDir : 'desc'}
+                        onClick={() => handlePlayerSort('keeperMatches')}
+                      >
+                        Keeper
+                      </TableSortLabel>
+                    </TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {playerStats.map((p, i) => {
+                  {sortedPlayerStats.map((p, i) => {
                     const isExpanded = expandedPlayer === p.name
                     return (
                       <Fragment key={p.name}>
