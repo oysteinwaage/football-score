@@ -466,6 +466,12 @@ export function MatchPage() {
     await persistMatch({ ...match, playerNames: [...matchPlayerNames, name] }, 'Spiller lagt til på kampen.')
   }
 
+  const toggleMatchKeeper = async (name: string) => {
+    const keeperNames = match.keeperNames ?? []
+    const nextKeeperNames = keeperNames.includes(name) ? keeperNames.filter((n) => n !== name) : [...keeperNames, name]
+    await persistMatch({ ...match, keeperNames: nextKeeperNames }, 'Keeper-registrering oppdatert.')
+  }
+
   const coachSuggestions = (team?.coachNames ?? []).filter((name) => !matchCoachNames.includes(name))
   const playerSuggestions = (team?.playerNames ?? []).filter((name) => !matchPlayerNames.includes(name))
   const otherTeamPlayerGroups = allTeams
@@ -741,6 +747,23 @@ export function MatchPage() {
                       </Button>
                     </Grid>
                   </Grid>
+                  {matchPlayerNames.length > 0 && (
+                    <Stack spacing={1}>
+                      <Typography variant="subtitle2">Hvem har vært keeper?</Typography>
+                      {matchPlayerNames.map((player) => (
+                        <FormControlLabel
+                          key={player}
+                          control={
+                            <Checkbox
+                              checked={(match.keeperNames ?? []).includes(player)}
+                              onChange={() => void toggleMatchKeeper(player)}
+                            />
+                          }
+                          label={player}
+                        />
+                      ))}
+                    </Stack>
+                  )}
                   <Button
                     variant="outlined"
                     color="inherit"
