@@ -640,17 +640,17 @@ export function MatchPage() {
                 <Stack spacing={2}>
                   <Typography variant="h5">Kampkontroller</Typography>
                   {isScheduled && (
-                    <Button variant="contained" startIcon={<PlayCircleRoundedIcon />} onClick={() => void startMatch()}>
+                    <Button variant="contained" startIcon={<PlayCircleRoundedIcon />} onClick={() => void startMatch()} sx={{ py: 1.9 }}>
                       Start kamp
                     </Button>
                   )}
                   {isFirstHalf && numberOfHalves === 2 && (
-                    <Button variant="contained" color="warning" startIcon={<PauseCircleRoundedIcon />} onClick={() => void pauseMatch()}>
+                    <Button variant="contained" color="warning" startIcon={<PauseCircleRoundedIcon />} onClick={() => void pauseMatch()} sx={{ py: 1.9 }}>
                       Pause
                     </Button>
                   )}
                   {isHalfTime && (
-                    <Button variant="contained" color="secondary" startIcon={<FlagRoundedIcon />} onClick={() => void startSecondHalf()}>
+                    <Button variant="contained" color="secondary" startIcon={<FlagRoundedIcon />} onClick={() => void startSecondHalf()} sx={{ py: 1.9 }}>
                       Start 2. omgang
                     </Button>
                   )}
@@ -660,6 +660,7 @@ export function MatchPage() {
                       color="error"
                       startIcon={<StopCircleRoundedIcon />}
                       onClick={() => { setEndMatchKeepers([]); setEndMatchNote(''); setEndMatchModalOpen(true) }}
+                      sx={{ py: 1.9 }}
                     >
                       Avslutt kamp
                     </Button>
@@ -683,6 +684,7 @@ export function MatchPage() {
                         size="large"
                         onClick={() => team?.requireScorerModal !== false ? setScorerModalOpen(true) : void registerGoal(ourSide, '')}
                         disabled={isFinished || isScheduled || isHalfTime}
+                        sx={{ py: 2.3 }}
                       >
                         Mål {ourTeamName}
                       </Button>
@@ -695,6 +697,7 @@ export function MatchPage() {
                         size="large"
                         onClick={() => void registerGoal(opponentSide, 'Ukjent')}
                         disabled={isFinished || isScheduled || isHalfTime}
+                        sx={{ py: 2.3 }}
                       >
                         Mål {opponentName}
                       </Button>
