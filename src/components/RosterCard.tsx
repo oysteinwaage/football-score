@@ -15,6 +15,7 @@ import {
   Stack,
   TextField,
   Typography,
+  useTheme,
 } from '@mui/material'
 import { useState } from 'react'
 
@@ -60,6 +61,7 @@ export function RosterCard({
   onRemove,
   onAdd,
 }: RosterCardProps) {
+  const theme = useTheme()
   const [editing, setEditing] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
   const [newName, setNewName] = useState('')
@@ -101,12 +103,21 @@ export function RosterCard({
           </Stack>
           <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
             {names.map((name) => {
-              const matchedGroup = highlightGroups.find((group) => group.names.includes(name))
+              const matchedGroups = highlightGroups.filter((group) => group.names.includes(name))
+              const matchedColors = matchedGroups.map((group) => theme.palette[group.color ?? 'secondary'].main)
+              const splitSx =
+                matchedColors.length >= 2
+                  ? {
+                      background: `linear-gradient(135deg, ${matchedColors[0]} 50%, ${matchedColors[1]} 50%)`,
+                      color: theme.palette.getContrastText(matchedColors[0]),
+                    }
+                  : undefined
               return (
                 <Chip
                   key={name}
                   label={name}
-                  color={matchedGroup ? matchedGroup.color ?? 'secondary' : 'default'}
+                  color={splitSx ? undefined : matchedGroups[0] ? matchedGroups[0].color ?? 'secondary' : 'default'}
+                  sx={splitSx}
                   onDelete={editing ? () => void handleRemove(name) : undefined}
                   deleteIcon={<CloseRoundedIcon />}
                   disabled={saving}
