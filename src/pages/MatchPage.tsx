@@ -46,6 +46,8 @@ import { formatMatchTime, getLiveElapsedSeconds } from '../utils/matchClock'
 
 export const OTHER_LOAN_PLAYER_NAMES = ['Alfred S', 'Jakob', 'Håkon']
 
+const TEAMS_WITHOUT_ATTENDANCE_INFO = ['Vestre Aker G10 Thunder']
+
 function firstName(name: string) {
   return name.split(' ')[0].toLowerCase()
 }
@@ -485,6 +487,10 @@ export function MatchPage() {
   const isFirstHalf = match.clock.status === MatchStatus.FIRST_HALF
   const isHalfTime = match.clock.status === MatchStatus.HALF_TIME
   const isFinished = match.clock.status === MatchStatus.FINISHED
+
+  const showAttendanceInfo = !TEAMS_WITHOUT_ATTENDANCE_INFO.includes(team?.name ?? '')
+  const loanedInPlayerNames =
+    showAttendanceInfo && isFinished ? matchPlayerNames.filter((name) => !(team?.playerNames ?? []).includes(name)) : []
   const isPreMatch = isScheduled && Date.now() >= new Date(match.startsAt).getTime() - 30 * 60 * 1000
   const matchEndedEvent = match.events.find((e) => e.type === MatchEventType.MATCH_ENDED)
   const isWithin30MinAfterFinish = isFinished && matchEndedEvent
@@ -604,8 +610,15 @@ export function MatchPage() {
               suggestions={playerSuggestions}
               suggestionsLabel="Fra eget lag:"
               otherGroups={playerGroups}
-              highlightedNames={match.keeperNames ?? []}
-              highlightLabel="Keeper"
+              highlightGroups={[
+                { names: match.keeperNames ?? [], label: 'Keeper', color: 'secondary' },
+                ...(showAttendanceInfo ? [{ names: loanedInPlayerNames, label: 'Lånespillere', color: 'info' as const }] : []),
+              ]}
+              footerText={
+                showAttendanceInfo && isFinished && playerSuggestions.length > 0
+                  ? `Fravær: ${playerSuggestions.join(', ')}`
+                  : undefined
+              }
               onRemove={handleRemoveMatchPlayer}
               onAdd={handleAddMatchPlayer}
             />

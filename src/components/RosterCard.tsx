@@ -23,6 +23,14 @@ interface SuggestionGroup {
   names: string[]
 }
 
+type HighlightColor = 'secondary' | 'info' | 'warning' | 'success' | 'error'
+
+interface HighlightGroup {
+  names: string[]
+  label: string
+  color?: HighlightColor
+}
+
 interface RosterCardProps {
   title: string
   names: string[]
@@ -30,8 +38,8 @@ interface RosterCardProps {
   suggestions?: string[]
   suggestionsLabel?: string
   otherGroups?: SuggestionGroup[]
-  highlightedNames?: string[]
-  highlightLabel?: string
+  highlightGroups?: HighlightGroup[]
+  footerText?: string
   registeredOptions?: string[]
   registeredOptionsLabel?: string
   onRemove: (name: string) => Promise<void>
@@ -45,8 +53,8 @@ export function RosterCard({
   suggestions = [],
   suggestionsLabel = 'Fra laget:',
   otherGroups = [],
-  highlightedNames = [],
-  highlightLabel,
+  highlightGroups = [],
+  footerText,
   registeredOptions = [],
   registeredOptionsLabel = 'Velg fra registrerte',
   onRemove,
@@ -93,12 +101,12 @@ export function RosterCard({
           </Stack>
           <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
             {names.map((name) => {
-              const isHighlighted = highlightedNames.includes(name)
+              const matchedGroup = highlightGroups.find((group) => group.names.includes(name))
               return (
                 <Chip
                   key={name}
                   label={name}
-                  color={isHighlighted ? 'secondary' : 'default'}
+                  color={matchedGroup ? matchedGroup.color ?? 'secondary' : 'default'}
                   onDelete={editing ? () => void handleRemove(name) : undefined}
                   deleteIcon={<CloseRoundedIcon />}
                   disabled={saving}
@@ -115,11 +123,22 @@ export function RosterCard({
               />
             )}
           </Stack>
-          {highlightedNames.length > 0 && highlightLabel && (
-            <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-              <Chip color="secondary" size="small" sx={{ width: 16, height: 16, borderRadius: '4px' }} label="" />
-              <Typography variant="caption" color="text.secondary">{highlightLabel}</Typography>
+          {highlightGroups.some((group) => group.names.length > 0) && (
+            <Stack direction="row" spacing={3} useFlexGap sx={{ flexWrap: 'wrap' }}>
+              {highlightGroups
+                .filter((group) => group.names.length > 0)
+                .map((group) => (
+                  <Stack key={group.label} direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                    <Chip color={group.color ?? 'secondary'} size="small" sx={{ width: 16, height: 16, borderRadius: '4px' }} label="" />
+                    <Typography variant="caption" color="text.secondary">{group.label}</Typography>
+                  </Stack>
+                ))}
             </Stack>
+          )}
+          {footerText && (
+            <Typography variant="caption" color="text.secondary">
+              {footerText}
+            </Typography>
           )}
         </Stack>
       </CardContent>
