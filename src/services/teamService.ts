@@ -41,6 +41,7 @@ export async function createTeam(input: CreateTeamInput): Promise<TeamRecord> {
     coachNames: input.coachNames,
     matchIds: [],
     ...(input.teamType === TeamType.CUP ? { numberOfHalves: 1 } : {}),
+    ...(input.teamType === TeamType.FUTSAL ? { numberOfHalves: 1, halfDurationMinutes: 30 } : {}),
     createdAt: now,
     updatedAt: now,
   }

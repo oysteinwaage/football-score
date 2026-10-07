@@ -1,6 +1,7 @@
 export enum TeamType {
   SERIE = 'SERIE',
   CUP = 'CUP',
+  FUTSAL = 'FUTSAL',
   TEST = 'TEST',
 }
 

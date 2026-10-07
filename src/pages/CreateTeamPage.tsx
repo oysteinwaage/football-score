@@ -184,6 +184,7 @@ export function CreateTeamPage() {
                 >
                   <MenuItem value={TeamType.SERIE}>Serie</MenuItem>
                   <MenuItem value={TeamType.CUP}>Cup</MenuItem>
+                  <MenuItem value={TeamType.FUTSAL}>Futsal</MenuItem>
                   <MenuItem value={TeamType.TEST}>Test</MenuItem>
                 </Select>
               </FormControl>

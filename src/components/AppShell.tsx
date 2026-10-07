@@ -70,6 +70,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [lagOpen, setLagOpen] = useState(false)
   const [lagCupOpen, setLagCupOpen] = useState(false)
+  const [lagFutsalOpen, setLagFutsalOpen] = useState(false)
   const [lagTestOpen, setLagTestOpen] = useState(false)
   const [shareModalOpen, setShareModalOpen] = useState(false)
   const [feedbackDialogOpen, setFeedbackDialogOpen] = useState(false)
@@ -137,6 +138,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           const activeTeams = allTeams.filter((t) => profile.teamIds.includes(t.id) && !t.retired)
           const serieTeams = activeTeams.filter((t) => (t.teamType ?? TeamType.SERIE) === TeamType.SERIE)
           const cupTeams = activeTeams.filter((t) => t.teamType === TeamType.CUP)
+          const futsalTeams = activeTeams.filter((t) => t.teamType === TeamType.FUTSAL)
           const testTeams = activeTeams.filter((t) => t.teamType === TeamType.TEST)
 
           return (
@@ -209,6 +211,43 @@ export function AppShell({ children }: { children: ReactNode }) {
                           sx={{ borderRadius: 3, mb: 0.5 }}
                         >
                           <ListItemText primary={renderCupTeamLabel(team)} />
+                        </ListItemButton>
+                      ))}
+                    </List>
+                  </Collapse>
+                </>
+              )}
+              {futsalTeams.length === 1 && (
+                <ListItemButton
+                  component={RouterLink}
+                  to={`/teams/${futsalTeams[0].id}`}
+                  selected={location.pathname === `/teams/${futsalTeams[0].id}`}
+                  onClick={() => setMobileOpen(false)}
+                  sx={{ borderRadius: 3, mb: 0.5 }}
+                >
+                  <ListItemIcon><GroupsRoundedIcon /></ListItemIcon>
+                  <ListItemText primary={futsalTeams[0].name} />
+                </ListItemButton>
+              )}
+              {futsalTeams.length > 1 && (
+                <>
+                  <ListItemButton onClick={() => setLagFutsalOpen(!lagFutsalOpen)} sx={{ borderRadius: 3, mb: 0.5 }}>
+                    <ListItemIcon><GroupsRoundedIcon /></ListItemIcon>
+                    <ListItemText primary="Lag - Futsal" />
+                    {lagFutsalOpen ? <ExpandLessRoundedIcon /> : <ExpandMoreRoundedIcon />}
+                  </ListItemButton>
+                  <Collapse in={lagFutsalOpen} timeout="auto">
+                    <List disablePadding sx={{ pl: 2 }}>
+                      {futsalTeams.map((team) => (
+                        <ListItemButton
+                          key={team.id}
+                          component={RouterLink}
+                          to={`/teams/${team.id}`}
+                          selected={location.pathname === `/teams/${team.id}`}
+                          onClick={() => setMobileOpen(false)}
+                          sx={{ borderRadius: 3, mb: 0.5 }}
+                        >
+                          <ListItemText primary={team.name} />
                         </ListItemButton>
                       ))}
                     </List>
