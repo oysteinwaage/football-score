@@ -40,8 +40,9 @@ import { PhotoEditDialog } from '../components/PhotoEditDialog'
 import { RosterCard } from '../components/RosterCard'
 import { useAuth } from '../context/AuthContext'
 import { useCollection, useDocument } from '../hooks/useRealtimeDatabase'
-import { deleteMatchPhoto, updateMatch, uploadMatchPhoto } from '../services/matchService'
+import { deleteMatchPhoto, updateMatch, updateMatches, uploadMatchPhoto } from '../services/matchService'
 import { GoalAssist, GoalScorer, MatchEvent, MatchEventType, MatchRecord, MatchStatus, TeamRecord, UserRole } from '../types/domain'
+import { findLinkedMatch, MatchSide, resolveTeamSide } from '../utils/linkedMatch'
 import { formatMatchTime, getLiveElapsedSeconds } from '../utils/matchClock'
 
 export const OTHER_LOAN_PLAYER_NAMES = ['Alfred S', 'Jakob', 'Håkon']
@@ -65,6 +66,14 @@ function computeGoalStats(events: MatchEvent[], ourGoalType: MatchEventType): { 
     goalScorers: Object.entries(scorerCounts).map(([name, goals]) => ({ name, goals })),
     goalAssists: Object.entries(assistCounts).map(([name, assists]) => ({ name, assists })),
   }
+}
+
+function buildGoalText(teamName: string, score: MatchRecord['score'], celebrate: boolean, scorer?: string, assist?: string) {
+  const suffix = celebrate ? ' 🎉' : '.'
+  const scoreText = `Stillingen er nå ${score.home} - ${score.away}.`
+  return scorer
+    ? `Mål: ${scorer}${assist ? ` (assist: ${assist})` : ''} for ${teamName}${suffix} ${scoreText}`
+    : `${teamName} scoret${suffix} ${scoreText}`
 }
 
 function createEvent(
@@ -91,12 +100,14 @@ export function MatchPage() {
   const { data: match, loading, error } = useDocument<MatchRecord>(matchId ? `matches/${matchId}` : null)
   const { data: team } = useDocument<TeamRecord>(match ? `teams/${match.teamId}` : null)
   const { data: allTeams } = useCollection<TeamRecord>('teams')
+  const { data: allMatches } = useCollection<MatchRecord>('matches')
   const halfDuration = (team?.halfDurationMinutes ?? 30) * 60
   const numberOfHalves = match?.numberOfHalves ?? team?.numberOfHalves ?? 2
   const fullDuration = halfDuration * numberOfHalves
   const [clockSeconds, setClockSeconds] = useState(0)
   const [scorerModalOpen, setScorerModalOpen] = useState(false)
   const [pendingScorer, setPendingScorer] = useState('')
+  const [goalModalSide, setGoalModalSide] = useState<MatchSide | null>(null)
   const [assistModalOpen, setAssistModalOpen] = useState(false)
   const [infoNote, setInfoNote] = useState('')
   const [endMatchModalOpen, setEndMatchModalOpen] = useState(false)
@@ -159,17 +170,48 @@ export function MatchPage() {
     return <Alert severity="error">Du har ikke tilgang til denne kampen.</Alert>
   }
 
-  const ourSide: 'home' | 'away' = team?.name === match.awayTeam ? 'away' : 'home'
-  const opponentSide: 'home' | 'away' = ourSide === 'home' ? 'away' : 'home'
+  // Når to av appens egne lag møter hverandre finnes kampen på begge lag – disse holdes synkronisert
+  const linkedMatch = findLinkedMatch(match, allMatches, allTeams)
+  const linkedTeam = linkedMatch ? allTeams.find((t) => t.id === linkedMatch.teamId) ?? null : null
+  const canSeeLinkedTeam = Boolean(
+    linkedMatch && profile && (profile.roles.includes(UserRole.ADMIN) || profile.teamIds.includes(linkedMatch.teamId)),
+  )
+
+  const ourSide: MatchSide = linkedMatch ? resolveTeamSide(match, team?.name) : team?.name === match.awayTeam ? 'away' : 'home'
+  const opponentSide: MatchSide = ourSide === 'home' ? 'away' : 'home'
   const ourTeamName = ourSide === 'home' ? match.homeTeam : match.awayTeam
   const opponentName = ourSide === 'home' ? match.awayTeam : match.homeTeam
+  const sideTeamName = (side: MatchSide) => (side === 'home' ? match.homeTeam : match.awayTeam)
+  const goalTypeFor = (side: MatchSide) => (side === 'home' ? MatchEventType.GOAL_HOME : MatchEventType.GOAL_AWAY)
 
-  const persistMatch = async (nextMatch: MatchRecord, successMessage: string) => {
+  const persistMatch = async (
+    nextMatch: MatchRecord,
+    successMessage: string,
+    options: { syncLinked?: boolean; linkedOverrides?: Partial<MatchRecord> } = {},
+  ) => {
     setErrorMessage(null)
     setStatusMessage(null)
 
     try {
-      await updateMatch(nextMatch.id, nextMatch)
+      if (linkedMatch && options.syncLinked !== false) {
+        const linkedUpdates: Partial<MatchRecord> = {
+          clock: nextMatch.clock,
+          score: nextMatch.score,
+          events: nextMatch.events,
+          homeTeam: nextMatch.homeTeam,
+          awayTeam: nextMatch.awayTeam,
+          startsAt: nextMatch.startsAt,
+          location: nextMatch.location,
+          ...(nextMatch.clock.status === MatchStatus.FINISHED ? computeGoalStats(nextMatch.events, goalTypeFor(opponentSide)) : {}),
+          ...options.linkedOverrides,
+        }
+        await updateMatches([
+          { matchId: nextMatch.id, updates: nextMatch },
+          { matchId: linkedMatch.id, updates: linkedUpdates },
+        ])
+      } else {
+        await updateMatch(nextMatch.id, nextMatch)
+      }
       setStatusMessage(successMessage)
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Kunne ikke oppdatere kampen.')
@@ -268,7 +310,9 @@ export function MatchPage() {
 
     setResetConfirm1Open(false)
     setResetConfirm2Open(false)
-    await persistMatch(nextMatch, 'Kampen er resatt.')
+    await persistMatch(nextMatch, 'Kampen er resatt.', {
+      linkedOverrides: { goalScorers: [], goalAssists: [], keeperNames: [] },
+    })
   }
 
   const registerGoal = async (side: 'home' | 'away', scorerName: string, assistName?: string) => {
@@ -277,19 +321,14 @@ export function MatchPage() {
       home: side === 'home' ? match.score.home + 1 : match.score.home,
       away: side === 'away' ? match.score.away + 1 : match.score.away,
     }
-    const teamName = side === 'home' ? match.homeTeam : match.awayTeam
-    const isOpponent = side === opponentSide
+    const teamName = sideTeamName(side)
+    // Ved sammenkoblet kamp registreres målscorer også for motstanderlaget (som er et av våre egne lag)
+    const tracksScorer = side === ourSide || Boolean(linkedMatch)
     const hasScorer = scorerName.trim().length > 0
-    const scorer = scorerName.trim() || 'Ukjent spiller'
-    const assistSuffix = !isOpponent && assistName ? ` (assist: ${assistName})` : ''
-    const text = isOpponent
-      ? `${teamName} scoret. Stillingen er nå ${score.home} - ${score.away}.`
-      : hasScorer
-        ? `Mål: ${scorer}${assistSuffix} for ${teamName} 🎉 Stillingen er nå ${score.home} - ${score.away}.`
-        : `${teamName} scoret 🎉 Stillingen er nå ${score.home} - ${score.away}.`
-    const eventType = side === 'home' ? MatchEventType.GOAL_HOME : MatchEventType.GOAL_AWAY
-    const storedScorerName = isOpponent || !hasScorer ? undefined : scorer
-    const storedAssistName = !isOpponent && assistName ? assistName : undefined
+    const eventType = goalTypeFor(side)
+    const storedScorerName = tracksScorer && hasScorer ? scorerName.trim() : undefined
+    const storedAssistName = tracksScorer && assistName ? assistName : undefined
+    const text = buildGoalText(teamName, score, side === ourSide, storedScorerName, storedAssistName)
     const newEvent: MatchEvent = {
       ...createEvent(eventType, text, elapsedSeconds, score, storedScorerName),
       ...(storedAssistName ? { assistName: storedAssistName } : {}),
@@ -313,7 +352,22 @@ export function MatchPage() {
       void updateGoalEvent(editingGoalEvent, pendingScorer, assistName)
       setEditingGoalEvent(null)
     } else {
-      void registerGoal(ourSide, pendingScorer, assistName)
+      void registerGoal(goalModalSide ?? ourSide, pendingScorer, assistName)
+    }
+    setGoalModalSide(null)
+  }
+
+  const openGoalRegistration = (side: MatchSide) => {
+    if (side !== ourSide && !linkedMatch) {
+      void registerGoal(side, 'Ukjent')
+      return
+    }
+    const sideTeam = side === ourSide ? team : linkedTeam
+    if (sideTeam?.requireScorerModal !== false) {
+      setGoalModalSide(side)
+      setScorerModalOpen(true)
+    } else {
+      void registerGoal(side, '')
     }
   }
 
@@ -346,20 +400,13 @@ export function MatchPage() {
   }
 
   const updateGoalEvent = async (event: MatchEvent, scorerName: string, assistName?: string) => {
-    const side: 'home' | 'away' = event.type === MatchEventType.GOAL_HOME ? 'home' : 'away'
-    const isOpponent = side === opponentSide
+    const side: MatchSide = event.type === MatchEventType.GOAL_HOME ? 'home' : 'away'
+    const tracksScorer = side === ourSide || Boolean(linkedMatch)
     const hasScorer = scorerName.trim().length > 0
-    const scorer = scorerName.trim() || 'Ukjent spiller'
-    const assistSuffix = !isOpponent && assistName ? ` (assist: ${assistName})` : ''
-    const teamName = side === 'home' ? match.homeTeam : match.awayTeam
     const score = event.scoreAfter ?? match.score
-    const text = isOpponent
-      ? `${teamName} scoret. Stillingen er nå ${score.home} - ${score.away}.`
-      : hasScorer
-        ? `Mål: ${scorer}${assistSuffix} for ${teamName} 🎉 Stillingen er nå ${score.home} - ${score.away}.`
-        : `${teamName} scoret 🎉 Stillingen er nå ${score.home} - ${score.away}.`
-    const storedScorerName = isOpponent || !hasScorer ? undefined : scorer
-    const storedAssistName = !isOpponent && assistName ? assistName : undefined
+    const storedScorerName = tracksScorer && hasScorer ? scorerName.trim() : undefined
+    const storedAssistName = tracksScorer && assistName ? assistName : undefined
+    const text = buildGoalText(sideTeamName(side), score, side === ourSide, storedScorerName, storedAssistName)
     const updatedEvent: MatchEvent = { ...event, text, scorerName: storedScorerName, assistName: storedAssistName, corrected: true }
     const nextEvents = match.events.map((e) => (e.id === event.id ? updatedEvent : e))
     const ourGoalType = ourSide === 'home' ? MatchEventType.GOAL_HOME : MatchEventType.GOAL_AWAY
@@ -435,6 +482,17 @@ export function MatchPage() {
           (team?.coachNames ?? []).some((coach) => firstName(coach) === firstName(profile.parentName)))),
   )
 
+  const isScorerVisible = (scorerTeam: TeamRecord | null | undefined) =>
+    !(
+      scorerTeam?.showScorerInEvents === false &&
+      !(scorerTeam?.showScorerInEventsForCoach && isTrenerOrAdmin) &&
+      !profile?.showScorerInEvents
+    )
+
+  const modalSide = goalModalSide ?? ourSide
+  const modalTeamName = sideTeamName(modalSide)
+  const modalPlayerNames = modalSide === ourSide ? matchPlayerNames : linkedMatch?.playerNames ?? []
+
   const handleSaveCoachNote = async () => {
     setCoachNoteSaving(true)
     setErrorMessage(null)
@@ -451,25 +509,25 @@ export function MatchPage() {
   }
 
   const handleRemoveMatchCoach = async (name: string) => {
-    await persistMatch({ ...match, coachNames: matchCoachNames.filter((c) => c !== name) }, 'Trener fjernet fra kampen.')
+    await persistMatch({ ...match, coachNames: matchCoachNames.filter((c) => c !== name) }, 'Trener fjernet fra kampen.', { syncLinked: false })
   }
 
   const handleAddMatchCoach = async (name: string) => {
-    await persistMatch({ ...match, coachNames: [...matchCoachNames, name] }, 'Trener lagt til på kampen.')
+    await persistMatch({ ...match, coachNames: [...matchCoachNames, name] }, 'Trener lagt til på kampen.', { syncLinked: false })
   }
 
   const handleRemoveMatchPlayer = async (name: string) => {
-    await persistMatch({ ...match, playerNames: matchPlayerNames.filter((p) => p !== name) }, 'Spiller fjernet fra kampen.')
+    await persistMatch({ ...match, playerNames: matchPlayerNames.filter((p) => p !== name) }, 'Spiller fjernet fra kampen.', { syncLinked: false })
   }
 
   const handleAddMatchPlayer = async (name: string) => {
-    await persistMatch({ ...match, playerNames: [...matchPlayerNames, name] }, 'Spiller lagt til på kampen.')
+    await persistMatch({ ...match, playerNames: [...matchPlayerNames, name] }, 'Spiller lagt til på kampen.', { syncLinked: false })
   }
 
   const toggleMatchKeeper = async (name: string) => {
     const keeperNames = match.keeperNames ?? []
     const nextKeeperNames = keeperNames.includes(name) ? keeperNames.filter((n) => n !== name) : [...keeperNames, name]
-    await persistMatch({ ...match, keeperNames: nextKeeperNames }, 'Keeper-registrering oppdatert.')
+    await persistMatch({ ...match, keeperNames: nextKeeperNames }, 'Keeper-registrering oppdatert.', { syncLinked: false })
   }
 
   const coachSuggestions = (team?.coachNames ?? []).filter((name) => !matchCoachNames.includes(name))
@@ -682,7 +740,7 @@ export function MatchPage() {
                         color="success"
                         fullWidth
                         size="large"
-                        onClick={() => team?.requireScorerModal !== false ? setScorerModalOpen(true) : void registerGoal(ourSide, '')}
+                        onClick={() => openGoalRegistration(ourSide)}
                         disabled={isFinished || isScheduled || isHalfTime}
                         sx={{ py: 2.3 }}
                       >
@@ -695,7 +753,7 @@ export function MatchPage() {
                         color="error"
                         fullWidth
                         size="large"
-                        onClick={() => void registerGoal(opponentSide, 'Ukjent')}
+                        onClick={() => openGoalRegistration(opponentSide)}
                         disabled={isFinished || isScheduled || isHalfTime}
                         sx={{ py: 2.3 }}
                       >
@@ -733,7 +791,7 @@ export function MatchPage() {
                         color="success"
                         fullWidth
                         size="large"
-                        onClick={() => team?.requireScorerModal !== false ? setScorerModalOpen(true) : void registerGoal(ourSide, '')}
+                        onClick={() => openGoalRegistration(ourSide)}
                       >
                         Mål {ourTeamName}
                       </Button>
@@ -744,7 +802,7 @@ export function MatchPage() {
                         color="error"
                         fullWidth
                         size="large"
-                        onClick={() => void registerGoal(opponentSide, 'Ukjent')}
+                        onClick={() => openGoalRegistration(opponentSide)}
                       >
                         Mål {opponentName}
                       </Button>
@@ -853,7 +911,7 @@ export function MatchPage() {
                   const isGoal = event.type === MatchEventType.GOAL_HOME || event.type === MatchEventType.GOAL_AWAY
                   const isInfo = event.type === MatchEventType.INFO
                   const isOurGoal = event.type === (ourSide === 'home' ? MatchEventType.GOAL_HOME : MatchEventType.GOAL_AWAY)
-                  const canEditGoal = canManage && correctionMode && isOurGoal
+                  const canEditGoal = canManage && correctionMode && isGoal && (isOurGoal || Boolean(linkedMatch))
                   const canEditInfo = canManage && correctionMode && isInfo
                   const eventIcon = {
                     [MatchEventType.GOAL_HOME]: <SportsSoccerRoundedIcon color={ourSide === 'home' ? 'success' : 'error'} />,
@@ -871,13 +929,23 @@ export function MatchPage() {
                         primary={
                           <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
                             <span>
-                              {team?.showScorerInEvents === false &&
-                              !(team?.showScorerInEventsForCoach && isTrenerOrAdmin) &&
-                              !profile?.showScorerInEvents &&
-                              event.type === (ourSide === 'home' ? MatchEventType.GOAL_HOME : MatchEventType.GOAL_AWAY) &&
-                              event.scoreAfter
-                                ? `${ourTeamName} scoret 🎉. Stillingen er nå ${event.scoreAfter.home} - ${event.scoreAfter.away}.`
-                                : event.text}
+                              {linkedMatch && isGoal
+                                ? (() => {
+                                    const goalSide: MatchSide = event.type === MatchEventType.GOAL_HOME ? 'home' : 'away'
+                                    const showScorer = goalSide === ourSide ? isScorerVisible(team) : canSeeLinkedTeam && isScorerVisible(linkedTeam)
+                                    return buildGoalText(
+                                      sideTeamName(goalSide),
+                                      event.scoreAfter ?? match.score,
+                                      goalSide === ourSide,
+                                      showScorer ? event.scorerName : undefined,
+                                      showScorer ? event.assistName : undefined,
+                                    )
+                                  })()
+                                : !isScorerVisible(team) &&
+                                    event.type === (ourSide === 'home' ? MatchEventType.GOAL_HOME : MatchEventType.GOAL_AWAY) &&
+                                    event.scoreAfter
+                                  ? `${ourTeamName} scoret 🎉. Stillingen er nå ${event.scoreAfter.home} - ${event.scoreAfter.away}.`
+                                  : event.text}
                             </span>
                             {event.corrected && <Chip label="Korrigert" size="small" color="warning" variant="outlined" />}
                           </Stack>
@@ -894,6 +962,7 @@ export function MatchPage() {
                                   color="primary"
                                   onClick={() => {
                                     setEditingGoalEvent(event)
+                                    setGoalModalSide(event.type === MatchEventType.GOAL_HOME ? 'home' : 'away')
                                     setScorerModalOpen(true)
                                   }}
                                 >
@@ -1061,11 +1130,11 @@ export function MatchPage() {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={scorerModalOpen} onClose={() => { setScorerModalOpen(false); setEditingGoalEvent(null) }} fullWidth maxWidth="xs">
-        <DialogTitle>{editingGoalEvent ? `Endre målscorer for ${ourTeamName}` : `Hvem scoret for ${ourTeamName}?`}</DialogTitle>
+      <Dialog open={scorerModalOpen} onClose={() => { setScorerModalOpen(false); setEditingGoalEvent(null); setGoalModalSide(null) }} fullWidth maxWidth="xs">
+        <DialogTitle>{editingGoalEvent ? `Endre målscorer for ${modalTeamName}` : `Hvem scoret for ${modalTeamName}?`}</DialogTitle>
         <DialogContent>
           <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', pt: 1 }}>
-            {matchPlayerNames.map((player) => (
+            {modalPlayerNames.map((player) => (
               <Chip
                 key={player}
                 label={player}
@@ -1098,7 +1167,7 @@ export function MatchPage() {
           </Stack>
         </DialogContent>
         <DialogActions sx={{ p: 3, pt: 0 }}>
-          <Button onClick={() => { setScorerModalOpen(false); setEditingGoalEvent(null) }}>Avbryt</Button>
+          <Button onClick={() => { setScorerModalOpen(false); setEditingGoalEvent(null); setGoalModalSide(null) }}>Avbryt</Button>
         </DialogActions>
       </Dialog>
 
@@ -1106,7 +1175,7 @@ export function MatchPage() {
         <DialogTitle>Hvem hadde assist?</DialogTitle>
         <DialogContent>
           <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', pt: 1 }}>
-            {matchPlayerNames.filter((p) => p !== pendingScorer).map((player) => (
+            {modalPlayerNames.filter((p) => p !== pendingScorer).map((player) => (
               <Chip
                 key={player}
                 label={player}

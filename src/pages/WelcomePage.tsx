@@ -20,6 +20,7 @@ import { useAuth } from '../context/AuthContext'
 import { useCollection } from '../hooks/useRealtimeDatabase'
 import { deleteUserProfile, updateUserAccess } from '../services/userService'
 import { MatchEventType, MatchRecord, MatchStatus, TeamRecord, UserProfile, UserRole } from '../types/domain'
+import { findLinkedMatch } from '../utils/linkedMatch'
 import { getMatchOutcomeBackground, getMatchOutcomeForTeam } from '../utils/matchCardColors'
 import { formatMatchTime, getLiveElapsedSeconds } from '../utils/matchClock'
 
@@ -74,6 +75,11 @@ export function WelcomePage() {
         match.clock.status !== MatchStatus.FINISHED,
     )
     .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+    // Kamper mellom to egne lag finnes på begge lag – vis kun ett innslag
+    .filter((match, index, list) => {
+      const linked = findLinkedMatch(match, matches, teams)
+      return !linked || !list.slice(0, index).some((m) => m.id === linked.id)
+    })
   const upcomingMatchesByTeam = visibleTeams
     .map((team) => {
       const upcomingMatch =
@@ -91,6 +97,14 @@ export function WelcomePage() {
     })
     .filter((entry): entry is { team: TeamRecord; match: MatchRecord } => entry !== null)
     .sort((left, right) => left.match.startsAt.localeCompare(right.match.startsAt))
+  // Slår sammen "Neste kamp" når to egne lag skal møte hverandre
+  const upcomingMatches = upcomingMatchesByTeam.reduce<Array<{ teams: TeamRecord[]; match: MatchRecord }>>((acc, entry) => {
+    const linked = findLinkedMatch(entry.match, matches, teams)
+    const existing = linked ? acc.find((e) => e.match.id === linked.id) : undefined
+    if (existing) existing.teams.push(entry.team)
+    else acc.push({ teams: [entry.team], match: entry.match })
+    return acc
+  }, [])
   const remainingMatchCountByTeam = useMemo(() => {
     const countMap: Record<string, number> = {}
     for (const team of visibleTeams) {
@@ -254,23 +268,25 @@ export function WelcomePage() {
         )
       })}
 
-      {upcomingMatchesByTeam.length > 0 && (
+      {upcomingMatches.length > 0 && (
         <Stack spacing={2}>
-          {upcomingMatchesByTeam.map(({ team, match }) => (
-            <Card key={team.id} component={RouterLink} to={`/matches/${match.id}`} sx={{ textDecoration: 'none', color: 'inherit' }}>
+          {upcomingMatches.map(({ teams: matchTeams, match }) => (
+            <Card key={match.id} component={RouterLink} to={`/matches/${match.id}`} sx={{ textDecoration: 'none', color: 'inherit' }}>
               <CardContent>
                 <Stack spacing={1.5}>
                   <Stack spacing={0.5}>
                     <Stack direction="row" spacing={1} sx={{ alignItems: 'baseline' }}>
                       <Typography variant="h5">Neste kamp</Typography>
-                      {team.teamType === 'CUP' && (
+                      {matchTeams[0].teamType === 'CUP' && (
                         <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                          {team.cupName ?? 'Cup'}
+                          {matchTeams[0].cupName ?? 'Cup'}
                         </Typography>
                       )}
                     </Stack>
                     <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-                      <Chip label={team.name} color="secondary" variant="outlined" />
+                      {matchTeams.map((team) => (
+                        <Chip key={team.id} label={team.name} color="secondary" variant="outlined" />
+                      ))}
                       <Chip label={formatDaysUntilMatch(match.startsAt, currentTime)} color="primary" variant="outlined" />
                     </Stack>
                   </Stack>

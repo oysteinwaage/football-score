@@ -206,10 +206,13 @@ export function GlobalStatsPage() {
           bucketFor(stat, match.teamId).assists += assist.assists
         }
       } else {
+        // Kun spillere i kamptroppen – ved kamper mellom to egne lag har også motstanderens mål assist registrert
+        const matchPlayers = new Set(match.playerNames ?? [])
         for (const event of match.events ?? []) {
           if (
             (event.type === MatchEventType.GOAL_HOME || event.type === MatchEventType.GOAL_AWAY) &&
-            event.assistName
+            event.assistName &&
+            matchPlayers.has(event.assistName)
           ) {
             const stat = getOrCreate(event.assistName)
             stat.assists++

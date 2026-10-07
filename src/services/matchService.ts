@@ -100,6 +100,18 @@ export async function updateMatch(matchId: string, updates: Partial<MatchRecord>
   )
 }
 
+/** Oppdaterer flere kamper atomisk (brukes for sammenkoblede kamper mellom to egne lag). */
+export async function updateMatches(entries: Array<{ matchId: string; updates: Partial<MatchRecord> }>): Promise<void> {
+  const updatedAt = new Date().toISOString()
+  const payload: Record<string, unknown> = {}
+  for (const { matchId, updates } of entries) {
+    for (const [key, value] of Object.entries(omitUndefined({ ...updates, updatedAt }))) {
+      payload[`matches/${matchId}/${key}`] = value
+    }
+  }
+  await update(ref(requireDatabase()), payload)
+}
+
 export async function deleteMatch(matchId: string, teamId: string): Promise<void> {
   await remove(ref(requireDatabase(), `matches/${matchId}`))
   await removeMatchReferenceFromTeam(teamId, matchId)
