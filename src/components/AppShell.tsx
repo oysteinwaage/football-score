@@ -98,6 +98,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     if (!profile?.approved) {
       return []
     }
+
     return [
       { label: 'Oversikt', icon: <HomeRoundedIcon />, href: '/' },
     ]
