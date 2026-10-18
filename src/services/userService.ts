@@ -12,7 +12,14 @@ function requireDatabase() {
   return database
 }
 
-export async function createUserProfile(user: User, parentName: string, childName: string, teamIds: string[] = [], photoUrlOverride?: string): Promise<UserProfile> {
+export async function createUserProfile(
+  user: User,
+  parentName: string,
+  childName: string,
+  teamIds: string[] = [],
+  photoUrlOverride?: string,
+  childPlayerIds: string[] = [],
+): Promise<UserProfile> {
   const now = new Date().toISOString()
   const resolvedPhotoUrl = photoUrlOverride ?? user.photoURL ?? undefined
   const profile: UserProfile = {
@@ -25,6 +32,9 @@ export async function createUserProfile(user: User, parentName: string, childNam
     roles: [UserRole.FORELDER],
     teamIds,
     approved: false,
+    ...(childPlayerIds.length > 0
+      ? { childPlayerIds: Object.fromEntries(childPlayerIds.map((id) => [id, true])) }
+      : {}),
     ...(resolvedPhotoUrl ? { photoUrl: resolvedPhotoUrl } : {}),
     createdAt: now,
     updatedAt: now,

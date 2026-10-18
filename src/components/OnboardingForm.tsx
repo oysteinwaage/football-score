@@ -1,5 +1,6 @@
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Card,
@@ -15,7 +16,7 @@ import { FormEvent, useState } from 'react'
 
 import { useAuth } from '../context/AuthContext'
 import { useCollection } from '../hooks/useRealtimeDatabase'
-import { TeamRecord, TeamType } from '../types/domain'
+import { PlayerRecord, TeamRecord, TeamType } from '../types/domain'
 
 function providerName(user: ReturnType<typeof useAuth>['user']): string {
   const id = user?.providerData?.[0]?.providerId ?? ''
@@ -30,10 +31,31 @@ export function OnboardingForm() {
   const { data: allTeams } = useCollection<TeamRecord>('teams')
   const teams = allTeams.filter((t) => !t.retired && t.teamType !== TeamType.TEST)
   const [parentName, setParentName] = useState(user?.displayName ?? '')
+  const { data: allPlayers } = useCollection<PlayerRecord>('players')
+  const players = [...allPlayers].sort((a, b) => a.name.localeCompare(b.name, 'nb'))
+  const [selectedPlayers, setSelectedPlayers] = useState<PlayerRecord[]>([])
   const [childName, setChildName] = useState('')
   const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const teamIdsForPlayers = (selected: PlayerRecord[]): string[] => {
+    const names = new Set(selected.map((player) => player.name.trim().toLowerCase()))
+    return teams
+      .filter((team) => team.playerNames.some((name) => names.has(name.trim().toLowerCase())))
+      .map((team) => team.id)
+  }
+
+  const handlePlayersChange = (nextPlayers: PlayerRecord[]) => {
+    const previousTeamIds = teamIdsForPlayers(selectedPlayers)
+    const nextTeamIds = teamIdsForPlayers(nextPlayers)
+    setSelectedPlayers(nextPlayers)
+    setSelectedTeamIds((prev) => {
+      // Fjern lag som kun ble huket av for spillere som nå er fjernet, og legg til lagene til nye spillere.
+      const kept = prev.filter((id) => !previousTeamIds.includes(id) || nextTeamIds.includes(id))
+      return Array.from(new Set([...kept, ...nextTeamIds]))
+    })
+  }
 
   const toggleTeam = (teamId: string) => {
     setSelectedTeamIds((prev) =>
@@ -41,13 +63,22 @@ export function OnboardingForm() {
     )
   }
 
+  const resolvedChildName = selectedPlayers.length > 0
+    ? selectedPlayers.map((player) => player.name).join(', ')
+    : childName.trim()
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setSubmitting(true)
     setError(null)
 
     try {
-      await completeOnboarding(parentName.trim(), childName.trim(), selectedTeamIds)
+      await completeOnboarding(
+        parentName.trim(),
+        resolvedChildName,
+        selectedTeamIds,
+        selectedPlayers.map((player) => player.id),
+      )
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : 'Kunne ikke lagre registreringen.')
     } finally {
@@ -74,12 +105,33 @@ export function OnboardingForm() {
               onChange={(event) => setParentName(event.target.value)}
               required
             />
-            <TextField
-              label="Navn på barnet ditt"
-              value={childName}
-              onChange={(event) => setChildName(event.target.value)}
-              required
-            />
+            {players.length > 0 && (
+              <Autocomplete
+                multiple
+                options={players}
+                value={selectedPlayers}
+                onChange={(_, value) => handlePlayersChange(value)}
+                getOptionLabel={(player) => player.name}
+                isOptionEqualToValue={(option, value) => option.id === value.id}
+                noOptionsText="Fant ingen spiller med det navnet"
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Velg barnet ditt"
+                    helperText="Har du flere barn på lagene, kan du velge alle."
+                  />
+                )}
+              />
+            )}
+            {selectedPlayers.length === 0 && (
+              <TextField
+                label="Navn på barnet ditt"
+                value={childName}
+                onChange={(event) => setChildName(event.target.value)}
+                helperText={players.length > 0 ? 'Finner du ikke barnet i listen over, skriv navnet her.' : undefined}
+                required
+              />
+            )}
             {teams.length > 0 && (
               <Stack spacing={1}>
                 <Typography variant="subtitle2">Hvilke lag ønsker du tilgang til?</Typography>
@@ -121,7 +173,7 @@ export function OnboardingForm() {
               type="submit"
               size="large"
               variant="contained"
-              disabled={submitting || !parentName.trim() || !childName.trim()}
+              disabled={submitting || !parentName.trim() || !resolvedChildName}
             >
               {submitting ? 'Lagrer...' : 'Send inn registrering'}
             </Button>

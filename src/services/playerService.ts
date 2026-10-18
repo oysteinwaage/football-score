@@ -1,4 +1,4 @@
-import { push, ref, set, update } from 'firebase/database'
+import { push, ref, runTransaction, set, update } from 'firebase/database'
 
 import { database, firebaseConfigError } from '../firebase/config'
 import { PlayerRecord } from '../types/domain'
@@ -66,4 +66,17 @@ export async function updatePlayerParents(
   })
 
   await update(ref(requireDatabase()), updates)
+}
+
+export async function addParentToPlayers(userId: string, playerIds: string[]): Promise<void> {
+  const db = requireDatabase()
+
+  await Promise.all(
+    playerIds.map((playerId) =>
+      runTransaction(ref(db, `players/${playerId}/parentIds`), (current: unknown) => {
+        const parentIds = Array.isArray(current) ? current.filter((id): id is string => typeof id === 'string') : []
+        return parentIds.includes(userId) ? parentIds : [...parentIds, userId]
+      }),
+    ),
+  )
 }

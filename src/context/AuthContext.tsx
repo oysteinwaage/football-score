@@ -32,6 +32,7 @@ import { ReactNode } from 'react'
 
 import { auth, database, firebaseConfigError, isFirebaseConfigured } from '../firebase/config'
 import { UserProfile } from '../types/domain'
+import { addParentToPlayers } from '../services/playerService'
 import { createUserProfile, declineUserPhotoUrl, saveUserPhotoUrl } from '../services/userService'
 import { normalizeUserProfile } from '../utils/normalizeRecords'
 
@@ -46,7 +47,7 @@ interface AuthContextValue {
   signInWithGoogle: () => Promise<void>
   signInWithMicrosoft: () => Promise<void>
   signOutUser: () => Promise<void>
-  completeOnboarding: (parentName: string, childName: string, teamIds: string[]) => Promise<void>
+  completeOnboarding: (parentName: string, childName: string, teamIds: string[], childPlayerIds?: string[]) => Promise<void>
   acceptPhotoUrl: () => Promise<void>
   declinePhotoUrl: () => Promise<void>
 }
@@ -164,13 +165,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         await signOut(auth)
       },
-      completeOnboarding: async (parentName: string, childName: string, teamIds: string[]) => {
+      completeOnboarding: async (parentName: string, childName: string, teamIds: string[], childPlayerIds: string[] = []) => {
         if (!user) {
           throw new Error('Du må være logget inn for å fullføre registreringen.')
         }
 
         const photoUrlOverride = user.photoURL ?? msPendingPhotoUrl ?? undefined
-        const nextProfile = await createUserProfile(user, parentName, childName, teamIds, photoUrlOverride)
+        const nextProfile = await createUserProfile(user, parentName, childName, teamIds, photoUrlOverride, childPlayerIds)
+        if (childPlayerIds.length > 0) {
+          try {
+            await addParentToPlayers(user.uid, childPlayerIds)
+          } catch (linkError) {
+            // Profilen har childPlayerIds uansett; admin kan fullføre koblingen manuelt.
+            console.warn('Kunne ikke koble forelder til spiller', linkError)
+          }
+        }
         setProfile(nextProfile)
         setProfileMissing(false)
       },
