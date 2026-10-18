@@ -11,6 +11,7 @@ import {
   type MatchEvent,
   type MatchRecord,
   type MatchScore,
+  type CoachRecord,
   type PlayerRecord,
   type SongRecord,
   type TeamRecord,
@@ -114,6 +115,7 @@ export function normalizeUserProfile(value: unknown, id: string): UserProfile {
     childPlayerIds: typeof source.childPlayerIds === 'object' && source.childPlayerIds !== null
       ? Object.fromEntries(Object.entries(source.childPlayerIds).filter(([, v]) => v === true)) as Record<string, boolean>
       : undefined,
+    coachId: typeof source.coachId === 'string' ? source.coachId : undefined,
     photoUrl: typeof source.photoUrl === 'string' ? source.photoUrl : undefined,
     declinedPhotoUrl: source.declinedPhotoUrl === true ? true : undefined,
     showScorerInEvents: source.showScorerInEvents === true ? true : undefined,
@@ -223,6 +225,17 @@ export function normalizePlayerRecord(value: unknown, id: string): PlayerRecord 
   }
 }
 
+export function normalizeCoachRecord(value: unknown, id: string): CoachRecord {
+  const source = typeof value === 'object' && value !== null ? (value as Partial<CoachRecord>) : {}
+  return {
+    id,
+    name: typeof source.name === 'string' ? source.name : '',
+    userId: typeof source.userId === 'string' ? source.userId : undefined,
+    createdAt: typeof source.createdAt === 'string' ? source.createdAt : new Date(0).toISOString(),
+    updatedAt: typeof source.updatedAt === 'string' ? source.updatedAt : new Date(0).toISOString(),
+  }
+}
+
 export function normalizeByPath<T>(path: string, id: string, value: unknown): T & { id: string } {
   if (path === 'users' || path.startsWith('users/')) {
     return normalizeUserProfile(value, id) as unknown as T & { id: string }
@@ -230,6 +243,10 @@ export function normalizeByPath<T>(path: string, id: string, value: unknown): T 
 
   if (path === 'players' || path.startsWith('players/')) {
     return normalizePlayerRecord(value, id) as unknown as T & { id: string }
+  }
+
+  if (path === 'coaches' || path.startsWith('coaches/')) {
+    return normalizeCoachRecord(value, id) as unknown as T & { id: string }
   }
 
   if (path === 'teams' || path.startsWith('teams/')) {

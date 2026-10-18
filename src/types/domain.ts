@@ -81,6 +81,7 @@ export interface UserProfile {
   teamIds: string[]
   approved: boolean
   childPlayerIds?: Record<string, boolean>
+  coachId?: string
   photoUrl?: string
   declinedPhotoUrl?: boolean
   showScorerInEvents?: boolean
@@ -164,6 +165,14 @@ export interface PlayerRecord {
   id: string
   name: string
   parentIds: string[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CoachRecord {
+  id: string
+  name: string
+  userId?: string
   createdAt: string
   updatedAt: string
 }

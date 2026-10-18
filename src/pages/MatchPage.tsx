@@ -41,7 +41,8 @@ import { RosterCard } from '../components/RosterCard'
 import { useAuth } from '../context/AuthContext'
 import { useCollection, useDocument } from '../hooks/useRealtimeDatabase'
 import { deleteMatchPhoto, updateMatch, updateMatches, uploadMatchPhoto } from '../services/matchService'
-import { GoalAssist, GoalScorer, MatchEvent, MatchEventType, MatchRecord, MatchStatus, TeamRecord, UserRole } from '../types/domain'
+import { CoachRecord, GoalAssist, GoalScorer, MatchEvent, MatchEventType, MatchRecord, MatchStatus, TeamRecord, UserProfile, UserRole } from '../types/domain'
+import { getCoachOptionNames } from '../utils/coachOptions'
 import { findLinkedMatch, MatchSide, resolveTeamSide } from '../utils/linkedMatch'
 import { formatMatchTime, getLiveElapsedSeconds } from '../utils/matchClock'
 
@@ -101,6 +102,8 @@ export function MatchPage() {
   const { data: team } = useDocument<TeamRecord>(match ? `teams/${match.teamId}` : null)
   const { data: allTeams } = useCollection<TeamRecord>('teams')
   const { data: allMatches } = useCollection<MatchRecord>('matches')
+  const { data: allCoaches } = useCollection<CoachRecord>('coaches')
+  const { data: allUsers } = useCollection<UserProfile>('users')
   const halfDuration = (team?.halfDurationMinutes ?? 30) * 60
   const numberOfHalves = match?.numberOfHalves ?? team?.numberOfHalves ?? 2
   const fullDuration = halfDuration * numberOfHalves
@@ -531,6 +534,7 @@ export function MatchPage() {
   }
 
   const coachSuggestions = (team?.coachNames ?? []).filter((name) => !matchCoachNames.includes(name))
+  const registeredCoachOptions = getCoachOptionNames(allCoaches, allUsers, [...matchCoachNames, ...coachSuggestions])
   const playerSuggestions = (team?.playerNames ?? []).filter((name) => !matchPlayerNames.includes(name))
   const otherTeamPlayerGroups = allTeams
     .filter((otherTeam) => otherTeam.id !== match.teamId && !otherTeam.retired && otherTeam.allowPlayerLoans === true)
@@ -662,6 +666,8 @@ export function MatchPage() {
               names={matchCoachNames}
               canEdit={canEditRoster}
               suggestions={coachSuggestions}
+              registeredOptions={registeredCoachOptions}
+              registeredOptionsLabel="Velg trener"
               onRemove={handleRemoveMatchCoach}
               onAdd={handleAddMatchCoach}
             />

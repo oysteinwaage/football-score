@@ -23,7 +23,8 @@ import { useAuth } from '../context/AuthContext'
 import { useCollection } from '../hooks/useRealtimeDatabase'
 import { createTeam } from '../services/teamService'
 import { updateUserAccess } from '../services/userService'
-import { PlayerRecord, TeamType, UserProfile, UserRole } from '../types/domain'
+import { CoachRecord, PlayerRecord, TeamType, UserProfile, UserRole } from '../types/domain'
+import { getCoachOptionNames } from '../utils/coachOptions'
 
 function splitLines(value: string) {
   return value
@@ -36,20 +37,18 @@ function firstName(name: string) {
   return name.split(' ')[0].toLowerCase()
 }
 
-function firstNameRaw(name: string) {
-  return name.split(' ')[0]
-}
 
 export function CreateTeamPage() {
   const { profile } = useAuth()
   const navigate = useNavigate()
   const { data: users } = useCollection<UserProfile>('users')
   const { data: registeredPlayers } = useCollection<PlayerRecord>('players')
+  const { data: registeredCoaches } = useCollection<CoachRecord>('coaches')
   const [teamName, setTeamName] = useState('')
   const [teamType, setTeamType] = useState<TeamType>(TeamType.SERIE)
   const [cupName, setCupName] = useState('')
   const [coachNames, setCoachNames] = useState('')
-  const [selectedCoachUserIds, setSelectedCoachUserIds] = useState<string[]>([])
+  const [selectedCoachNames, setSelectedCoachNames] = useState<string[]>([])
   const [selectedPlayerNames, setSelectedPlayerNames] = useState<string[]>([])
   const [playerNames, setPlayerNames] = useState('')
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set())
@@ -65,19 +64,22 @@ export function CreateTeamPage() {
     [registeredPlayers],
   )
 
-  const trenerUsers = useMemo(
-    () => users.filter((u) => u.roles.includes(UserRole.TRENER)).sort((a, b) => a.parentName.localeCompare(b.parentName, 'no')),
-    [users],
+  const registeredCoachOptions = useMemo(
+    () => getCoachOptionNames(registeredCoaches, users),
+    [registeredCoaches, users],
   )
 
-  const selectedCoachUsers = useMemo(
-    () => trenerUsers.filter((u) => selectedCoachUserIds.includes(u.id)),
-    [trenerUsers, selectedCoachUserIds],
-  )
+  // Brukere som er koblet til en valgt trener i Admin → Trenere.
+  const linkedCoachUserIds = useMemo(() => {
+    const selected = new Set(selectedCoachNames.map((n) => n.toLowerCase()))
+    return registeredCoaches
+      .filter((c) => c.userId && selected.has(c.name.trim().toLowerCase()))
+      .map((c) => c.userId as string)
+  }, [registeredCoaches, selectedCoachNames])
 
   useEffect(() => {
     const coachFirstNames = new Set([
-      ...selectedCoachUsers.map((u) => firstName(u.parentName)),
+      ...selectedCoachNames.map((n) => firstName(n)),
       ...splitLines(coachNames).map((n) => firstName(n)),
     ])
     const playerNameSet = new Set([
@@ -97,10 +99,10 @@ export function CreateTeamPage() {
         }
       }
     }
-    selectedCoachUserIds.forEach((id) => autoSelected.add(id))
+    linkedCoachUserIds.forEach((id) => autoSelected.add(id))
 
     setSelectedUserIds(autoSelected)
-  }, [coachNames, playerNames, selectedCoachUserIds, selectedCoachUsers, selectedPlayerNames, users])
+  }, [coachNames, linkedCoachUserIds, playerNames, selectedCoachNames, selectedPlayerNames, users])
 
   if (!profile?.roles.includes(UserRole.ADMIN)) {
     return <Alert severity="error">Denne siden er bare tilgjengelig for administratorer.</Alert>
@@ -117,14 +119,14 @@ export function CreateTeamPage() {
 
   const isAutoMatched = (user: UserProfile): boolean => {
     const coachFirstNames = new Set([
-      ...selectedCoachUsers.map((u) => firstName(u.parentName)),
+      ...selectedCoachNames.map((n) => firstName(n)),
       ...splitLines(coachNames).map((n) => firstName(n)),
     ])
     const playerNameSet = new Set([
       ...selectedPlayerNames.map((n) => n.toLowerCase()),
       ...splitLines(playerNames).map((n) => n.toLowerCase()),
     ])
-    if (selectedCoachUserIds.includes(user.id)) return true
+    if (linkedCoachUserIds.includes(user.id)) return true
     if (user.roles.includes(UserRole.TRENER) && coachFirstNames.has(firstName(user.parentName))) return true
     if (user.childName) {
       const childParts = user.childName.toLowerCase().split(/\s+/).filter(Boolean)
@@ -142,7 +144,7 @@ export function CreateTeamPage() {
         name: teamName.trim(),
         teamType,
         cupName: teamType === TeamType.CUP ? cupName.trim() : undefined,
-        coachNames: Array.from(new Set([...selectedCoachUsers.map((u) => firstNameRaw(u.parentName)), ...splitLines(coachNames)])),
+        coachNames: Array.from(new Set([...selectedCoachNames, ...splitLines(coachNames)])),
         playerNames: Array.from(new Set([...selectedPlayerNames, ...splitLines(playerNames)])),
       })
 
@@ -199,17 +201,15 @@ export function CreateTeamPage() {
               )}
               <Autocomplete
                 multiple
-                options={trenerUsers}
-                value={selectedCoachUsers}
-                getOptionLabel={(u) => u.parentName}
-                isOptionEqualToValue={(option, value) => option.id === value.id}
-                onChange={(_, newValue) => setSelectedCoachUserIds(newValue.map((u) => u.id))}
+                options={registeredCoachOptions}
+                value={selectedCoachNames}
+                onChange={(_, newValue) => setSelectedCoachNames(newValue)}
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label="Velg trenere"
+                    label="Velg registrerte trenere"
                     placeholder="Søk etter trener..."
-                    helperText="Kun brukere med Trener-rollen vises. Fornavnet legges inn som trenernavn på laget."
+                    helperText="Trenere registrert under Admin → Trenere, og brukere med Trener-rollen."
                   />
                 )}
               />
@@ -219,7 +219,7 @@ export function CreateTeamPage() {
                 onChange={(e) => setCoachNames(e.target.value)}
                 multiline
                 minRows={4}
-                helperText="For trenere som ikke har fått Trener-rollen. Skriv ett navn per linje eller skil med komma."
+                helperText="For trenere som ikke finnes i listen over. Skriv ett navn per linje eller skil med komma."
               />
               <Autocomplete
                 multiple

@@ -43,7 +43,8 @@ import { fetchFotballCalendar } from '../services/fotballCalendar'
 import { createMatch, deleteMatch, importFixtures, updateMatch } from '../services/matchService'
 import { deleteTeam, deleteTeamPhoto, incrementTeamSongPlayCount, retireTeam, retireTeamSong, updateTeamHalfDuration, updateTeamName, updateTeamNumberOfHalves, updateTeamRoster, updateTeamSong, uploadTeamPhoto } from '../services/teamService'
 import { incrementUserSongPlay } from '../services/userService'
-import { MatchEventType, MatchRecord, MatchStatus, PlayerRecord, TeamRecord, UserProfile, UserRole } from '../types/domain'
+import { CoachRecord, MatchEventType, MatchRecord, MatchStatus, PlayerRecord, TeamRecord, UserProfile, UserRole } from '../types/domain'
+import { getCoachOptionNames } from '../utils/coachOptions'
 import { getMatchOutcomeBackground, getMatchOutcomeForTeam } from '../utils/matchCardColors'
 import { getSunoSongPageUrl } from '../utils/songUrl'
 
@@ -55,6 +56,7 @@ export function TeamPage() {
   const { data: matches, loading: matchesLoading } = useCollection<MatchRecord>('matches')
   const { data: users } = useCollection<UserProfile>('users')
   const { data: allPlayers } = useCollection<PlayerRecord>('players')
+  const { data: allCoaches } = useCollection<CoachRecord>('coaches')
   const [editingName, setEditingName] = useState(false)
   const [nameValue, setNameValue] = useState('')
   const [cupNameValue, setCupNameValue] = useState('')
@@ -95,14 +97,10 @@ export function TeamPage() {
     [matches, teamId],
   )
 
-  const registeredCoachOptions = useMemo(() => {
-    const trenerFirstNames = Array.from(
-      new Set(users.filter((u) => u.roles.includes(UserRole.TRENER)).map((u) => u.parentName.split(' ')[0])),
-    )
-    return trenerFirstNames
-      .filter((name) => !(team?.coachNames ?? []).includes(name))
-      .sort((a, b) => a.localeCompare(b, 'no'))
-  }, [users, team?.coachNames])
+  const registeredCoachOptions = useMemo(
+    () => getCoachOptionNames(allCoaches, users, team?.coachNames ?? []),
+    [allCoaches, users, team?.coachNames],
+  )
 
   const registeredPlayerOptions = useMemo(
     () => allPlayers

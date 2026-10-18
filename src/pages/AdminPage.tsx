@@ -3,6 +3,7 @@ import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded'
 import {
   Alert,
+  Autocomplete,
   Avatar,
   Badge,
   Box,
@@ -29,11 +30,12 @@ import { Link as RouterLink } from 'react-router-dom'
 
 import { useAuth } from '../context/AuthContext'
 import { useCollection } from '../hooks/useRealtimeDatabase'
+import { createCoach, deleteCoach, updateCoachUser } from '../services/coachService'
 import { deleteFeedback, markFeedbackRead } from '../services/feedbackService'
 import { createPlayer, deletePlayer, updatePlayerParents } from '../services/playerService'
 import { updateTeamAllowPlayerLoans, updateTeamHideHistoricalMatches, updateTeamRequireScorerModal, updateTeamShowCoachNote, updateTeamShowScorerInEvents, updateTeamShowScorerInEventsForCoach } from '../services/teamService'
 import { deleteUserProfile, updateUserAccess, updateUserShowScorerInEvents } from '../services/userService'
-import { FeedbackRecord, FeedbackType, PlayerRecord, TeamRecord, TeamType, UserProfile, UserRole } from '../types/domain'
+import { CoachRecord, FeedbackRecord, FeedbackType, PlayerRecord, TeamRecord, TeamType, UserProfile, UserRole } from '../types/domain'
 import { OTHER_LOAN_PLAYER_NAMES } from './MatchPage'
 
 const feedbackTypeLabels: Record<FeedbackType, string> = {
@@ -48,6 +50,7 @@ export function AdminPage() {
   const { data: teams, loading: teamsLoading, error: teamsError } = useCollection<TeamRecord>('teams')
   const { data: feedbackList, loading: feedbackLoading, error: feedbackError } = useCollection<FeedbackRecord>('feedback')
   const { data: players, loading: playersLoading, error: playersError } = useCollection<PlayerRecord>('players')
+  const { data: coaches, loading: coachesLoading, error: coachesError } = useCollection<CoachRecord>('coaches')
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [userPendingDeletion, setUserPendingDeletion] = useState<UserProfile | null>(null)
@@ -62,6 +65,11 @@ export function AdminPage() {
   const [addPlayerOpen, setAddPlayerOpen] = useState(false)
   const [newPlayerName, setNewPlayerName] = useState('')
   const [seedingPlayers, setSeedingPlayers] = useState(false)
+  const [trenereExpanded, setTrenereExpanded] = useState(false)
+  const [coachPendingDeletion, setCoachPendingDeletion] = useState<CoachRecord | null>(null)
+  const [addCoachOpen, setAddCoachOpen] = useState(false)
+  const [newCoachName, setNewCoachName] = useState('')
+  const [seedingCoaches, setSeedingCoaches] = useState(false)
 
   const toggleExpanded = (userId: string) => {
     setExpandedUserIds((prev) => {
@@ -94,6 +102,12 @@ export function AdminPage() {
   const unreadFeedbackCount = useMemo(() => sortedFeedback.filter((f) => !f.read).length, [sortedFeedback])
 
   const sortedPlayers = useMemo(() => [...players].sort((left, right) => left.name.localeCompare(right.name, 'no')), [players])
+  const sortedCoaches = useMemo(() => [...coaches].sort((left, right) => left.name.localeCompare(right.name, 'no')), [coaches])
+  // Brukere med Trener-rollen først, så de er lettest å finne når man kobler en trener til en bruker.
+  const coachUserOptions = useMemo(
+    () => [...sortedUsers].sort((left, right) => Number(right.roles.includes(UserRole.TRENER)) - Number(left.roles.includes(UserRole.TRENER))),
+    [sortedUsers],
+  )
 
   if (!profile?.roles.includes(UserRole.ADMIN)) {
     return <Alert severity="error">Denne siden er bare tilgjengelig for administratorer.</Alert>
@@ -157,6 +171,10 @@ export function AdminPage() {
           ),
         ),
       )
+      const linkedCoach = coaches.find((c) => c.userId === userPendingDeletion.id)
+      if (linkedCoach) {
+        await updateCoachUser(linkedCoach, null, coaches, users)
+      }
       await deleteUserProfile(userPendingDeletion.id)
       setStatusMessage('Brukerprofilen ble slettet.')
       setUserPendingDeletion(null)
@@ -259,13 +277,83 @@ export function AdminPage() {
     }
   }
 
+  const handleCoachUserChange = async (coach: CoachRecord, userId: string | null) => {
+    try {
+      await updateCoachUser(coach, userId, coaches, users)
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Kunne ikke oppdatere trenerkoblingen.')
+    }
+  }
+
+  const handleAddCoach = async () => {
+    const trimmed = newCoachName.trim()
+    if (!trimmed) return
+
+    if (coaches.some((c) => c.name.trim().toLowerCase() === trimmed.toLowerCase())) {
+      setErrorMessage('Denne treneren finnes allerede.')
+      return
+    }
+
+    try {
+      await createCoach(trimmed)
+      setNewCoachName('')
+      setAddCoachOpen(false)
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Kunne ikke legge til treneren.')
+    }
+  }
+
+  const handleDeleteCoach = async () => {
+    if (!coachPendingDeletion) return
+
+    try {
+      await deleteCoach(coachPendingDeletion)
+      setCoachPendingDeletion(null)
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Kunne ikke slette treneren.')
+    }
+  }
+
+  const handleSeedCoaches = async () => {
+    setSeedingCoaches(true)
+    setErrorMessage(null)
+    setStatusMessage(null)
+
+    try {
+      const existingNames = new Set(coaches.map((c) => c.name.trim().toLowerCase()))
+      const namesToAdd: string[] = []
+
+      teams
+        .filter((t) => !t.retired && t.teamType !== TeamType.TEST)
+        .forEach((team) => team.coachNames.forEach((name) => {
+          const trimmed = name.trim()
+          const key = trimmed.toLowerCase()
+          if (!trimmed || existingNames.has(key)) return
+          existingNames.add(key)
+          namesToAdd.push(trimmed)
+        }))
+
+      if (namesToAdd.length === 0) {
+        setStatusMessage('Alle trenere er allerede lagt inn.')
+        return
+      }
+
+      await Promise.all(namesToAdd.map((name) => createCoach(name)))
+      setStatusMessage(`La til ${namesToAdd.length} trener${namesToAdd.length === 1 ? '' : 'e'}.`)
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Kunne ikke fylle inn trenere.')
+    } finally {
+      setSeedingCoaches(false)
+    }
+  }
+
   return (
     <Stack spacing={3}>
       <Typography variant="h4">Administrasjon</Typography>
       {statusMessage && <Alert severity="success">{statusMessage}</Alert>}
       {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
-      {(usersError || teamsError || feedbackError || playersError) && (
-        <Alert severity="error">{usersError ?? teamsError ?? feedbackError ?? playersError}</Alert>
+      {(usersError || teamsError || feedbackError || playersError || coachesError) && (
+        <Alert severity="error">{usersError ?? teamsError ?? feedbackError ?? playersError ?? coachesError}</Alert>
       )}
 
       <Card>
@@ -539,6 +627,88 @@ export function AdminPage() {
         </Collapse>
       </Card>
 
+      <Card>
+        <Box
+          onClick={() => setTrenereExpanded((prev) => !prev)}
+          sx={{ px: 2, py: 1.5, cursor: 'pointer', userSelect: 'none' }}
+        >
+          <Stack direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
+            <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
+              <Typography variant="h5">Trenere</Typography>
+              <Chip label={coaches.length} size="small" variant="outlined" />
+            </Stack>
+            <ExpandMoreRoundedIcon
+              sx={{ transform: trenereExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}
+            />
+          </Stack>
+        </Box>
+        <Collapse in={trenereExpanded}>
+          <Divider />
+          <CardContent>
+            <Stack spacing={2}>
+              {coachesLoading && <Alert severity="info">Laster trenere...</Alert>}
+
+              <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
+                <Button
+                  variant="outlined"
+                  onClick={() => void handleSeedCoaches()}
+                  disabled={seedingCoaches || teamsLoading}
+                >
+                  {seedingCoaches ? 'Fyller inn...' : 'Fyll inn fra aktive lag'}
+                </Button>
+                <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => setAddCoachOpen(true)}>
+                  Legg til trener
+                </Button>
+              </Stack>
+
+              {!coachesLoading && sortedCoaches.length === 0 && (
+                <Alert severity="info">Ingen trenere registrert ennå.</Alert>
+              )}
+
+              {sortedCoaches.map((coach, index, arr) => {
+                const linkedUser = users.find((u) => u.id === coach.userId) ?? null
+
+                return (
+                  <Box key={coach.id}>
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ alignItems: { sm: 'center' } }}>
+                      <Typography sx={{ fontWeight: 600, minWidth: { sm: 140 } }}>{coach.name}</Typography>
+                      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flex: 1, minWidth: 0 }}>
+                        <Autocomplete
+                          size="small"
+                          options={coachUserOptions}
+                          value={linkedUser}
+                          onChange={(_, value) => void handleCoachUserChange(coach, value?.id ?? null)}
+                          getOptionLabel={(user) => user.parentName || user.displayName || user.email || 'Ukjent'}
+                          isOptionEqualToValue={(option, value) => option.id === value.id}
+                          groupBy={(user) => (user.roles.includes(UserRole.TRENER) ? 'Trenere' : 'Andre brukere')}
+                          renderInput={(params) => (
+                            <TextField {...params} label="Koblet bruker" placeholder="Ingen bruker koblet" />
+                          )}
+                          sx={{ flex: 1, minWidth: 0 }}
+                        />
+                        <IconButton
+                          color="error"
+                          aria-label="Slett trener"
+                          onClick={() => setCoachPendingDeletion(coach)}
+                        >
+                          <DeleteOutlineRoundedIcon />
+                        </IconButton>
+                      </Stack>
+                    </Stack>
+                    {linkedUser && !linkedUser.roles.includes(UserRole.TRENER) && (
+                      <Typography variant="caption" color="warning.main">
+                        {linkedUser.parentName} har ikke Trener-rollen.
+                      </Typography>
+                    )}
+                    {index < arr.length - 1 && <Divider sx={{ mt: 2 }} />}
+                  </Box>
+                )
+              })}
+            </Stack>
+          </CardContent>
+        </Collapse>
+      </Card>
+
       <Card
         component={RouterLink}
         to="/create-team"
@@ -562,6 +732,7 @@ export function AdminPage() {
             const linkedChildNames = players
               .filter((p) => user.childPlayerIds?.[p.id])
               .map((p) => p.name)
+            const linkedCoachName = coaches.find((c) => c.userId === user.id)?.name
             return (
               <Card key={user.id}>
                 <Box
@@ -582,6 +753,9 @@ export function AdminPage() {
                         {linkedChildNames.map((name) => (
                           <Chip key={name} label={name} size="small" variant="outlined" />
                         ))}
+                        {linkedCoachName && (
+                          <Chip label={`Trener: ${linkedCoachName}`} size="small" color="secondary" variant="outlined" />
+                        )}
                         {user.roles.map((role) => (
                           <Chip key={role} label={role} size="small" color="primary" variant="outlined" />
                         ))}
@@ -789,6 +963,50 @@ export function AdminPage() {
         <DialogActions sx={{ p: 3, pt: 0 }}>
           <Button onClick={() => setPlayerPendingDeletion(null)}>Avbryt</Button>
           <Button color="error" variant="contained" onClick={() => void handleDeletePlayer()}>
+            Bekreft sletting
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={addCoachOpen} onClose={() => setAddCoachOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Legg til trener</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            label="Navn"
+            value={newCoachName}
+            onChange={(e) => setNewCoachName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && void handleAddCoach()}
+            helperText="Navnet brukes som trenernavn på lag og kamper."
+            fullWidth
+            sx={{ mt: 1 }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 3, pt: 0 }}>
+          <Button onClick={() => setAddCoachOpen(false)}>Avbryt</Button>
+          <Button variant="contained" onClick={() => void handleAddCoach()} disabled={!newCoachName.trim()}>
+            Legg til
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(coachPendingDeletion)}
+        onClose={() => setCoachPendingDeletion(null)}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>Slett trener</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Er du sikker på at du vil slette treneren
+            {coachPendingDeletion ? ` ${coachPendingDeletion.name}` : ''}
+            ? Treneren blir ikke fjernet fra lag og kamper der navnet allerede står.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, pt: 0 }}>
+          <Button onClick={() => setCoachPendingDeletion(null)}>Avbryt</Button>
+          <Button color="error" variant="contained" onClick={() => void handleDeleteCoach()}>
             Bekreft sletting
           </Button>
         </DialogActions>
