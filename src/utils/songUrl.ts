@@ -7,6 +7,11 @@
 // som ble lagret før dette ble oppdaget, slik at eksisterende data fikses uten migrering.
 const SUNO_ID_PATTERN = /(?:suno\.com\/song\/|cdn\d*\.suno\.ai\/)([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i
 
+// Et lag har lagsang når det har en lenke og/eller en opplastet mp3-fil
+export function hasTeamSong(team: { songUrl?: string; songMp3Url?: string }): boolean {
+  return Boolean(team.songUrl || team.songMp3Url)
+}
+
 export function getSunoSongPageUrl(url: string): string | null {
   const match = url.match(SUNO_ID_PATTERN)
   return match ? `https://suno.com/song/${match[1]}` : null

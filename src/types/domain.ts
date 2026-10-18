@@ -104,6 +104,8 @@ export interface TeamRecord {
   songTitle?: string
   songPlayCount?: number
   songAddedBy?: string
+  songMp3Url?: string
+  songMp3Path?: string
   retired?: boolean
   halfDurationMinutes?: number
   numberOfHalves?: number
@@ -144,7 +146,10 @@ export interface MatchRecord {
 export interface SongRecord {
   id: string
   title: string
+  // Suno-lenke eller direkte lydlenke. Kan være tom når sangen kun har mp3.
   url: string
+  mp3Url?: string
+  mp3Path?: string
   playCount?: number
   userPlays?: Record<string, number>
   addedBy?: string

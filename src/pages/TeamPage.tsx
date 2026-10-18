@@ -1,5 +1,6 @@
 import AddCircleRoundedIcon from '@mui/icons-material/AddCircleRounded'
 import ArchiveRoundedIcon from '@mui/icons-material/ArchiveRounded'
+import AudioFileRoundedIcon from '@mui/icons-material/AudioFileRounded'
 import UnarchiveRoundedIcon from '@mui/icons-material/UnarchiveRounded'
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded'
 import CloudDownloadRoundedIcon from '@mui/icons-material/CloudDownloadRounded'
@@ -8,45 +9,97 @@ import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import MusicNoteRoundedIcon from '@mui/icons-material/MusicNoteRounded'
 import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded'
 import PhotoCameraRoundedIcon from '@mui/icons-material/PhotoCameraRounded'
+import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded'
+import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded'
 import {
   Alert,
   Box,
   Button,
   Card,
   CardContent,
+  Chip,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   Divider,
   FormControl,
+  FormControlLabel,
   Grid,
   IconButton,
   InputAdornment,
   InputLabel,
+  LinearProgress,
   MenuItem,
+  Radio,
+  RadioGroup,
   Select,
   Stack,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from '@mui/material'
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom'
 
 import { ManualMatchDialog, ManualMatchValues } from '../components/ManualMatchDialog'
 import { PhotoEditDialog } from '../components/PhotoEditDialog'
 import { RosterCard } from '../components/RosterCard'
 import { useAuth } from '../context/AuthContext'
+import { useCachedAudioSrc } from '../hooks/useCachedAudioSrc'
 import { useCollection, useDocument } from '../hooks/useRealtimeDatabase'
 import { fetchCupManagerCalendar } from '../services/cupManagerCalendar'
 import { fetchFotballCalendar } from '../services/fotballCalendar'
 import { createMatch, deleteMatch, importFixtures, updateMatch } from '../services/matchService'
-import { deleteTeam, deleteTeamPhoto, incrementTeamSongPlayCount, retireTeam, retireTeamSong, updateTeamHalfDuration, updateTeamName, updateTeamNumberOfHalves, updateTeamRoster, updateTeamSong, uploadTeamPhoto } from '../services/teamService'
+import { deleteTeam, deleteTeamPhoto, incrementTeamSongPlayCount, attachMp3ToTeamSong, retireTeam, retireTeamSong, setTeamSong, updateTeamHalfDuration, updateTeamName, updateTeamNumberOfHalves, updateTeamRoster, updateTeamSongTitle, uploadTeamPhoto } from '../services/teamService'
+import { deleteSongMp3, uploadSongMp3, validateMp3File } from '../services/songService'
 import { incrementUserSongPlay } from '../services/userService'
 import { CoachRecord, MatchEventType, MatchRecord, MatchStatus, PlayerRecord, TeamRecord, UserProfile, UserRole } from '../types/domain'
 import { getCoachOptionNames } from '../utils/coachOptions'
 import { getMatchOutcomeBackground, getMatchOutcomeForTeam } from '../utils/matchCardColors'
-import { getSunoSongPageUrl } from '../utils/songUrl'
+import { getSunoSongPageUrl, hasTeamSong } from '../utils/songUrl'
+
+// Spiller av opplastet mp3 via lokal cache. Filen hentes først når brukeren trykker spill av.
+function CachedMp3Player({ url, onPlay }: { url: string; onPlay: () => void }) {
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const [started, setStarted] = useState(false)
+  const { src, loading } = useCachedAudioSrc(url, started)
+
+  useEffect(() => {
+    if (src) audioRef.current?.play().catch(() => undefined)
+  }, [src])
+
+  if (!started) {
+    return (
+      <Button
+        variant="outlined"
+        size="small"
+        startIcon={<PlayArrowRoundedIcon />}
+        onClick={() => setStarted(true)}
+        sx={{ alignSelf: 'flex-start' }}
+      >
+        Spill av
+      </Button>
+    )
+  }
+
+  return (
+    <Stack spacing={1}>
+      {loading && <LinearProgress sx={{ borderRadius: 1 }} />}
+      <Box
+        component="audio"
+        ref={audioRef}
+        controls
+        src={src}
+        sx={{ width: '100%' }}
+        onPlay={() => {
+          if (audioRef.current && audioRef.current.currentTime < 1) onPlay()
+        }}
+      />
+    </Stack>
+  )
+}
 
 export function TeamPage() {
   const { teamId = '' } = useParams()
@@ -65,7 +118,13 @@ export function TeamPage() {
   const [songValue, setSongValue] = useState('')
   const [songTitleValue, setSongTitleValue] = useState('')
   const [songSaving, setSongSaving] = useState(false)
-  const [pendingSongChange, setPendingSongChange] = useState<{ url: string | null; title?: string } | null>(null)
+  const [songSource, setSongSource] = useState<'link' | 'mp3'>('mp3')
+  const [songMp3File, setSongMp3File] = useState<File | null>(null)
+  // Når laget har Suno-lenke uten mp3: er opplastet mp3 den samme sangen, eller en ny?
+  const [songMp3Target, setSongMp3Target] = useState<'existing' | 'new'>('existing')
+  const songFileInputRef = useRef<HTMLInputElement | null>(null)
+  // url og file mangler begge = fjern lagsangen
+  const [pendingSongChange, setPendingSongChange] = useState<{ url: string | null; file?: File; title?: string } | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [calendarUrl, setCalendarUrl] = useState('')
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
@@ -151,19 +210,71 @@ export function TeamPage() {
     }
   }
 
-  const handleSaveSong = async () => {
-    const trimmed = songValue.trim()
-    if (team?.songUrl && trimmed !== team.songUrl) {
-      // Endring av eksisterende lagsang — spør om den gamle skal flyttes til Andre sanger
-      setPendingSongChange({ url: trimmed || null, title: songTitleValue.trim() || undefined })
+  const openSongEditor = () => {
+    setSongValue(team?.songUrl ?? '')
+    setSongTitleValue(team?.songTitle ?? '')
+    setSongSource('mp3')
+    setSongMp3File(null)
+    setSongMp3Target('existing')
+    setEditingSong(true)
+  }
+
+  const handleSongFile = (file: File | undefined) => {
+    if (songFileInputRef.current) songFileInputRef.current.value = ''
+    if (!file) return
+    const validationError = validateMp3File(file)
+    if (validationError) {
+      setErrorMessage(validationError)
+      setSongMp3File(null)
       return
     }
+    setErrorMessage(null)
+    setSongMp3File(file)
+  }
+
+  const handleSaveSong = async () => {
+    if (!team) return
+    const title = songTitleValue.trim() || undefined
+    const teamHasSong = hasTeamSong(team)
+    const canAttachToExisting = Boolean(team.songUrl && !team.songMp3Url)
+
+    if (songSource === 'link') {
+      const trimmed = songValue.trim()
+      if (teamHasSong && trimmed !== (team.songUrl ?? '')) {
+        // Endring av eksisterende lagsang — spør om den gamle skal flyttes til Andre sanger
+        setPendingSongChange({ url: trimmed || null, title })
+        return
+      }
+      if (!teamHasSong && !trimmed) return
+    } else {
+      // Ingen ny fil valgt: bare tittelen kan ha endret seg
+      if (!songMp3File && !teamHasSong) return
+      if (songMp3File && teamHasSong && !(canAttachToExisting && songMp3Target === 'existing')) {
+        setPendingSongChange({ url: null, file: songMp3File, title })
+        return
+      }
+    }
+
     setSongSaving(true)
+    setErrorMessage(null)
     try {
-      await updateTeamSong(teamId, trimmed || null, songTitleValue.trim() || undefined, profile?.uid)
+      if (songSource === 'mp3' && !songMp3File) {
+        await updateTeamSongTitle(teamId, title)
+      } else if (songSource === 'mp3' && teamHasSong) {
+        // mp3 for den eksisterende Suno-sangen
+        await attachMp3ToTeamSong(teamId, songMp3File!)
+        await updateTeamSongTitle(teamId, title)
+      } else if (songSource === 'mp3') {
+        const mp3 = await uploadSongMp3(songMp3File!)
+        await setTeamSong(teamId, { mp3, title, addedBy: profile?.uid })
+      } else if (teamHasSong) {
+        await updateTeamSongTitle(teamId, title)
+      } else {
+        await setTeamSong(teamId, { url: songValue.trim(), title, addedBy: profile?.uid })
+      }
       setEditingSong(false)
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'Kunne ikke lagre sanglenkен.')
+      setErrorMessage(error instanceof Error ? error.message : 'Kunne ikke lagre lagsangen.')
     } finally {
       setSongSaving(false)
     }
@@ -173,10 +284,18 @@ export function TeamPage() {
     if (!pendingSongChange || !team) return
     setSongSaving(true)
     setErrorMessage(null)
+    let uploaded: Awaited<ReturnType<typeof uploadSongMp3>> | null = null
     try {
+      // Last opp først, så laget ikke mister sangen sin hvis opplastingen feiler
+      if (pendingSongChange.file) uploaded = await uploadSongMp3(pendingSongChange.file)
       await retireTeamSong(team, moveToOtherSongs)
-      if (pendingSongChange.url) {
-        await updateTeamSong(teamId, pendingSongChange.url, pendingSongChange.title, profile?.uid)
+      if (pendingSongChange.url || uploaded) {
+        await setTeamSong(teamId, {
+          url: pendingSongChange.url ?? undefined,
+          mp3: uploaded ?? undefined,
+          title: pendingSongChange.title,
+          addedBy: profile?.uid,
+        })
       }
       if (moveToOtherSongs) {
         setStatusMessage('Den gamle lagsangen ble flyttet til Andre sanger-listen.')
@@ -184,6 +303,7 @@ export function TeamPage() {
       setPendingSongChange(null)
       setEditingSong(false)
     } catch (error) {
+      if (uploaded) await deleteSongMp3(uploaded.mp3Path)
       setErrorMessage(error instanceof Error ? error.message : 'Kunne ikke oppdatere lagsangen.')
     } finally {
       setSongSaving(false)
@@ -481,27 +601,35 @@ export function TeamPage() {
       {statusMessage && <Alert severity="success">{statusMessage}</Alert>}
       {errorMessage && <Alert severity="error">{errorMessage}</Alert>}
 
-      {team.songUrl && (
+      {hasTeamSong(team) && (
         <Card>
           <CardContent>
             <Stack spacing={1.5}>
               <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                 <MusicNoteRoundedIcon color="primary" fontSize="small" />
                 <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>{team.songTitle || 'Lagssang'}</Typography>
+                {team.songMp3Url ? (
+                  <Chip size="small" color="success" variant="outlined" icon={<AudioFileRoundedIcon />} label="mp3" />
+                ) : team.songUrl && getSunoSongPageUrl(team.songUrl) ? (
+                  <Chip size="small" variant="outlined" icon={<OpenInNewRoundedIcon />} label="Suno" />
+                ) : null}
                 {canEditRoster && (
-                  <IconButton size="small" sx={{ ml: 'auto' }} onClick={() => { setSongValue(team.songUrl ?? ''); setSongTitleValue(team.songTitle ?? ''); setEditingSong(true) }}>
+                  <IconButton size="small" sx={{ ml: 'auto' }} onClick={openSongEditor}>
                     <EditRoundedIcon fontSize="small" />
                   </IconButton>
                 )}
               </Stack>
 
               {(() => {
-                const sunoSongUrl = getSunoSongPageUrl(team.songUrl!)
+                const sunoSongUrl = getSunoSongPageUrl(team.songUrl ?? '')
                 const trackPlay = () => {
                   void incrementTeamSongPlayCount(teamId)
                   if (profile?.uid) {
                     void incrementUserSongPlay(profile.uid, teamId)
                   }
+                }
+                if (team.songMp3Url) {
+                  return <CachedMp3Player url={team.songMp3Url} onPlay={trackPlay} />
                 }
                 if (sunoSongUrl) {
                   return (
@@ -539,11 +667,11 @@ export function TeamPage() {
         </Card>
       )}
 
-      {canEditRoster && !team.songUrl && !editingSong && (
+      {canEditRoster && !hasTeamSong(team) && !editingSong && (
         <Button
           variant="text"
           startIcon={<MusicNoteRoundedIcon />}
-          onClick={() => { setSongValue(''); setSongTitleValue(''); setEditingSong(true) }}
+          onClick={openSongEditor}
           sx={{ alignSelf: 'flex-start' }}
         >
           Legg til lagssang
@@ -554,7 +682,18 @@ export function TeamPage() {
         <Card>
           <CardContent>
             <Stack spacing={2}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Lagssang – lenke til lydfil</Typography>
+              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Lagssang</Typography>
+              {hasTeamSong(team) && (
+                <Alert
+                  severity={team.songMp3Url ? 'success' : 'info'}
+                  icon={team.songMp3Url ? <AudioFileRoundedIcon fontSize="inherit" /> : undefined}
+                  sx={{ py: 0.5 }}
+                >
+                  {team.songMp3Url
+                    ? <>Lagsangen har mp3-fil: <strong>{team.songMp3Path?.split('/').pop()?.replace(/^\d+-/, '') ?? 'lastet opp'}</strong>. Den spilles av direkte i appen.</>
+                    : 'Lagsangen har bare lenke til Suno og ingen mp3-fil ennå.'}
+                </Alert>
+              )}
               <TextField
                 label="Sangtittel"
                 value={songTitleValue}
@@ -564,15 +703,73 @@ export function TeamPage() {
                 autoFocus
                 placeholder="f.eks. Vår kampsang"
               />
-              <TextField
-                label="URL til lydfil"
-                value={songValue}
-                onChange={(e) => setSongValue(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && void handleSaveSong()}
-                disabled={songSaving}
+              <ToggleButtonGroup
+                value={songSource}
+                exclusive
                 fullWidth
-                placeholder="https://suno.com/song/... eller direkte .mp3-lenke"
-              />
+                size="small"
+                color="primary"
+                disabled={songSaving}
+                onChange={(_, value: 'link' | 'mp3' | null) => { if (value) setSongSource(value) }}
+              >
+                <ToggleButton value="link">Lenke til Suno</ToggleButton>
+                <ToggleButton value="mp3">Last opp mp3</ToggleButton>
+              </ToggleButtonGroup>
+              {songSource === 'link' ? (
+                <TextField
+                  label="URL til lydfil"
+                  value={songValue}
+                  onChange={(e) => setSongValue(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && void handleSaveSong()}
+                  disabled={songSaving}
+                  fullWidth
+                  placeholder="https://suno.com/song/... eller direkte .mp3-lenke"
+                />
+              ) : (
+                <Stack spacing={1}>
+                  <input
+                    ref={songFileInputRef}
+                    type="file"
+                    accept=".mp3,audio/mpeg"
+                    hidden
+                    onChange={(e) => { handleSongFile(e.target.files?.[0]) }}
+                  />
+                  <Button
+                    variant="outlined"
+                    startIcon={<UploadFileRoundedIcon />}
+                    onClick={() => songFileInputRef.current?.click()}
+                    disabled={songSaving}
+                    sx={{ alignSelf: 'flex-start' }}
+                  >
+                    {songMp3File ? 'Velg en annen fil' : 'Velg mp3-fil'}
+                  </Button>
+                  {songMp3File && (
+                    <Typography variant="body2" color="text.secondary" noWrap>
+                      {songMp3File.name} ({(songMp3File.size / 1024 / 1024).toFixed(1)} MB)
+                    </Typography>
+                  )}
+                  {team.songUrl && !team.songMp3Url && (
+                    <RadioGroup
+                      value={songMp3Target}
+                      onChange={(e) => setSongMp3Target(e.target.value as 'existing' | 'new')}
+                    >
+                      <FormControlLabel
+                        value="existing"
+                        control={<Radio size="small" />}
+                        label={`mp3-filen til «${team.songTitle || 'Lagssang'}» (eksisterende lagsang)`}
+                        disabled={songSaving}
+                      />
+                      <FormControlLabel
+                        value="new"
+                        control={<Radio size="small" />}
+                        label="En ny lagsang som erstatter den gamle"
+                        disabled={songSaving}
+                      />
+                    </RadioGroup>
+                  )}
+                </Stack>
+              )}
+              {songSaving && songSource === 'mp3' && <LinearProgress sx={{ borderRadius: 1 }} />}
               <Stack direction="row" spacing={1}>
                 <Button variant="contained" onClick={() => void handleSaveSong()} disabled={songSaving}>
                   Lagre
@@ -580,7 +777,7 @@ export function TeamPage() {
                 <Button onClick={() => setEditingSong(false)} disabled={songSaving}>
                   Avbryt
                 </Button>
-                {team.songUrl && (
+                {hasTeamSong(team) && (
                   <Button
                     color="error"
                     disabled={songSaving}
@@ -835,7 +1032,7 @@ export function TeamPage() {
         </DialogActions>
       </Dialog>
       <Dialog open={Boolean(pendingSongChange)} onClose={() => !songSaving && setPendingSongChange(null)} fullWidth maxWidth="xs">
-        <DialogTitle>{pendingSongChange?.url ? 'Endre lagsang' : 'Fjern lagsang'}</DialogTitle>
+        <DialogTitle>{pendingSongChange?.url || pendingSongChange?.file ? 'Endre lagsang' : 'Fjern lagsang'}</DialogTitle>
         <DialogContent>
           <Typography>Vil du flytte gammel sang over til Andre sanger listen?</Typography>
           <Typography color="text.secondary" variant="body2" sx={{ mt: 1 }}>

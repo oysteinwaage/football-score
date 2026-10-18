@@ -4,7 +4,8 @@ import { deleteObject, getDownloadURL, ref as storageRef, uploadBytes } from 'fi
 import { database, firebaseConfigError, storage } from '../firebase/config'
 import { TeamRecord, TeamType, UserProfile, UserRole } from '../types/domain'
 import { compressImage } from '../utils/compressImage'
-import { archiveTeamSongToSongs } from './songService'
+import { hasTeamSong } from '../utils/songUrl'
+import { archiveTeamSongToSongs, deleteSongMp3, UploadedMp3, uploadSongMp3 } from './songService'
 
 function requireDatabase() {
   if (!database) {
@@ -85,11 +86,25 @@ export async function addMatchReferenceToTeam(teamId: string, matchId: string): 
   })
 }
 
-export async function updateTeamSong(teamId: string, songUrl: string | null, songTitle?: string, addedBy?: string): Promise<void> {
+// Setter ny lagsang (lenke og/eller mp3). En eventuell gammel lagsang må
+// pensjoneres med retireTeamSong først.
+export async function setTeamSong(
+  teamId: string,
+  song: { url?: string; mp3?: UploadedMp3; title?: string; addedBy?: string },
+): Promise<void> {
   await update(ref(requireDatabase(), `teams/${teamId}`), {
-    songUrl: songUrl ?? null,
+    songUrl: song.url || null,
+    songMp3Url: song.mp3?.mp3Url ?? null,
+    songMp3Path: song.mp3?.mp3Path ?? null,
+    songTitle: song.title ?? null,
+    songAddedBy: song.addedBy ?? null,
+    updatedAt: new Date().toISOString(),
+  })
+}
+
+export async function updateTeamSongTitle(teamId: string, songTitle?: string): Promise<void> {
+  await update(ref(requireDatabase(), `teams/${teamId}`), {
     songTitle: songTitle ?? null,
-    ...(songUrl && addedBy ? { songAddedBy: addedBy } : songUrl === null ? { songAddedBy: null } : {}),
     updatedAt: new Date().toISOString(),
   })
 }
@@ -108,6 +123,21 @@ export async function updateTeamRoster(teamId: string, playerNames: string[], co
     coachNames,
     updatedAt: new Date().toISOString(),
   })
+}
+
+// Laster opp mp3 for lagets offisielle lagsang (f.eks. en som bare har Suno-lenke)
+export async function attachMp3ToTeamSong(teamId: string, file: File): Promise<void> {
+  const { mp3Url, mp3Path } = await uploadSongMp3(file)
+  try {
+    await update(ref(requireDatabase(), `teams/${teamId}`), {
+      songMp3Url: mp3Url,
+      songMp3Path: mp3Path,
+      updatedAt: new Date().toISOString(),
+    })
+  } catch (e) {
+    await deleteSongMp3(mp3Path)
+    throw e
+  }
 }
 
 export async function incrementTeamSongPlayCount(teamId: string): Promise<void> {
@@ -177,11 +207,14 @@ export async function updateTeamAllowPlayerLoans(teamId: string, allowPlayerLoan
 // (med avspillingsstatistikk), og fjerner deretter sangfeltene fra laget og
 // brukernes avspillingsstatistikk for laget.
 export async function retireTeamSong(team: TeamRecord, moveToOtherSongs: boolean): Promise<void> {
-  if (!team.songUrl) return
+  if (!hasTeamSong(team)) return
   const db = requireDatabase()
 
   if (moveToOtherSongs) {
     await archiveTeamSongToSongs(team)
+  } else {
+    // mp3-filen følger med sangen når den flyttes, ellers slettes den
+    await deleteSongMp3(team.songMp3Path, team.songMp3Url)
   }
 
   await update(ref(db, `teams/${team.id}`), {
@@ -189,6 +222,8 @@ export async function retireTeamSong(team: TeamRecord, moveToOtherSongs: boolean
     songTitle: null,
     songAddedBy: null,
     songPlayCount: null,
+    songMp3Url: null,
+    songMp3Path: null,
     updatedAt: new Date().toISOString(),
   })
 
@@ -210,7 +245,7 @@ export async function retireTeam(teamId: string, retired: boolean): Promise<void
   if (retired) {
     const snapshot = await get(ref(db, `teams/${teamId}`))
     const team = snapshot.val() as TeamRecord | null
-    if (team?.songUrl) {
+    if (team && hasTeamSong(team)) {
       await retireTeamSong({ ...team, id: teamId }, true)
     }
   }

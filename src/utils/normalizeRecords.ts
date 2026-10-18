@@ -144,6 +144,8 @@ export function normalizeTeamRecord(value: unknown, id: string): TeamRecord {
     songTitle: typeof source.songTitle === 'string' ? source.songTitle : undefined,
     songPlayCount: typeof source.songPlayCount === 'number' ? source.songPlayCount : undefined,
     songAddedBy: typeof source.songAddedBy === 'string' ? source.songAddedBy : undefined,
+    songMp3Url: typeof source.songMp3Url === 'string' ? source.songMp3Url : undefined,
+    songMp3Path: typeof source.songMp3Path === 'string' ? source.songMp3Path : undefined,
     retired: source.retired === true,
     halfDurationMinutes: typeof source.halfDurationMinutes === 'number' ? source.halfDurationMinutes : undefined,
     numberOfHalves: typeof source.numberOfHalves === 'number' ? source.numberOfHalves : undefined,
@@ -192,6 +194,8 @@ export function normalizeSongRecord(value: unknown, id: string): SongRecord {
     id,
     title: typeof source.title === 'string' ? source.title : '',
     url: typeof source.url === 'string' ? source.url : '',
+    mp3Url: typeof source.mp3Url === 'string' ? source.mp3Url : undefined,
+    mp3Path: typeof source.mp3Path === 'string' ? source.mp3Path : undefined,
     playCount: typeof source.playCount === 'number' ? source.playCount : undefined,
     userPlays: typeof source.userPlays === 'object' && source.userPlays !== null
       ? Object.fromEntries(Object.entries(source.userPlays).filter(([, v]) => typeof v === 'number') as [string, number][])

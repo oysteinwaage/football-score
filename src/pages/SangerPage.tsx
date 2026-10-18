@@ -3,11 +3,13 @@ import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded'
 import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded'
 import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded'
+import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded'
 import {
   Alert,
   Box,
   Button,
   Card,
+  CircularProgress,
   Collapse,
   Dialog,
   DialogActions,
@@ -16,6 +18,7 @@ import {
   DialogTitle,
   Divider,
   IconButton,
+  LinearProgress,
   Paper,
   Stack,
   Table,
@@ -24,6 +27,9 @@ import {
   TableHead,
   TableRow,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
+  Tooltip,
   Typography,
 } from '@mui/material'
 import { keyframes } from '@mui/system'
@@ -32,12 +38,13 @@ import { useEffect, useRef, useState } from 'react'
 import trulsFjes from '../assets/truls_fjes.png'
 
 import { useAuth } from '../context/AuthContext'
+import { useCachedAudioSrc } from '../hooks/useCachedAudioSrc'
 import { useCollection } from '../hooks/useRealtimeDatabase'
-import { addSong, deleteSong, incrementSongPlayCount } from '../services/songService'
-import { incrementTeamSongPlayCount } from '../services/teamService'
+import { addSong, attachMp3ToSong, deleteSong, incrementSongPlayCount, validateMp3File } from '../services/songService'
+import { attachMp3ToTeamSong, incrementTeamSongPlayCount } from '../services/teamService'
 import { incrementUserSongPlay } from '../services/userService'
 import { SongRecord, TeamRecord, UserProfile, UserRole } from '../types/domain'
-import { getSunoSongPageUrl } from '../utils/songUrl'
+import { getSunoSongPageUrl, hasTeamSong } from '../utils/songUrl'
 
 type PlayCountModalData = {
   title: string
@@ -117,9 +124,67 @@ function PlayCountModal({ data, onClose }: { data: PlayCountModalData; onClose: 
   )
 }
 
+function Mp3UploadButton({ onUpload }: { onUpload: (file: File) => Promise<void> }) {
+  const inputRef = useRef<HTMLInputElement | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleFile = async (file: File | undefined) => {
+    if (!file) return
+    const validationError = validateMp3File(file)
+    if (validationError) {
+      setError(validationError)
+      return
+    }
+    setUploading(true)
+    setError(null)
+    try {
+      await onUpload(file)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Kunne ikke laste opp mp3-filen.')
+    } finally {
+      setUploading(false)
+      if (inputRef.current) inputRef.current.value = ''
+    }
+  }
+
+  return (
+    <>
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".mp3,audio/mpeg"
+        hidden
+        onChange={(e) => void handleFile(e.target.files?.[0])}
+      />
+      {uploading ? (
+        <Box sx={{ width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <CircularProgress size={18} />
+        </Box>
+      ) : (
+        <Tooltip title="Last opp mp3-fil">
+          <IconButton size="small" color="primary" onClick={() => inputRef.current?.click()} aria-label="Last opp mp3-fil">
+            <UploadFileRoundedIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      )}
+      <Dialog open={Boolean(error)} onClose={() => setError(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Opplasting feilet</DialogTitle>
+        <DialogContent>
+          <DialogContentText>{error}</DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setError(null)}>OK</Button>
+        </DialogActions>
+      </Dialog>
+    </>
+  )
+}
+
 function PlaylistRow({
   title,
   url,
+  mp3Url,
   playCount,
   addedByName,
   isActive,
@@ -127,11 +192,13 @@ function PlaylistRow({
   onStarted,
   onEnded,
   onDelete,
+  onUploadMp3,
   onPlayCountClick,
   nextTitle,
 }: {
   title: string
   url: string
+  mp3Url?: string
   playCount?: number
   addedByName?: string
   isActive: boolean
@@ -139,23 +206,27 @@ function PlaylistRow({
   onStarted?: () => void
   onEnded?: () => void
   onDelete?: () => void
+  onUploadMp3?: (file: File) => Promise<void>
   onPlayCountClick?: () => void
   nextTitle?: string
 }) {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const [audioPlaying, setAudioPlaying] = useState(false)
-  const sunoSongUrl = getSunoSongPageUrl(url)
+  // Opplastet mp3 går foran; ellers lenkes det til Suno slik som før
+  const sunoSongUrl = mp3Url ? null : getSunoSongPageUrl(url)
+  const { src: cachedMp3Src, loading: audioLoading } = useCachedAudioSrc(mp3Url, isActive)
+  const audioSrc = mp3Url ? cachedMp3Src : sunoSongUrl ? undefined : url
 
   useEffect(() => {
     if (sunoSongUrl) return
     const audio = audioRef.current
     if (!audio) return
     if (isActive) {
-      void audio.play()
+      if (audioSrc) audio.play().catch(() => undefined)
     } else {
       audio.pause()
     }
-  }, [isActive, sunoSongUrl])
+  }, [isActive, sunoSongUrl, audioSrc])
 
   const openSunoTab = () => {
     window.open(sunoSongUrl!, '_blank', 'noopener,noreferrer')
@@ -177,7 +248,7 @@ function PlaylistRow({
     if (audioPlaying) {
       audio.pause()
     } else {
-      void audio.play()
+      audio.play().catch(() => undefined)
     }
   }
 
@@ -241,6 +312,7 @@ function PlaylistRow({
             {playCount} {playCount === 1 ? 'avspilling' : 'avspillinger'}
           </Typography>
         )}
+        {onUploadMp3 && <Mp3UploadButton onUpload={onUploadMp3} />}
         {onDelete && (
           <IconButton size="small" color="error" onClick={onDelete} aria-label="Slett sang">
             <DeleteOutlineRoundedIcon fontSize="small" />
@@ -265,25 +337,28 @@ function PlaylistRow({
               </Button>
             </Stack>
           ) : (
-            <Box
-              component="audio"
-              ref={audioRef}
-              controls
-              src={url}
-              preload="none"
-              sx={{ width: '100%' }}
-              onPlay={() => {
-                setAudioPlaying(true)
-                const audio = audioRef.current
-                if (audio && audio.currentTime < 1) onStarted?.()
-              }}
-              onPause={() => setAudioPlaying(false)}
-              onEnded={() => {
-                setAudioPlaying(false)
-                if (audioRef.current) audioRef.current.currentTime = 0
-                onEnded?.()
-              }}
-            />
+            <>
+              {audioLoading && <LinearProgress sx={{ mb: 1, borderRadius: 1 }} />}
+              <Box
+                component="audio"
+                ref={audioRef}
+                controls
+                src={audioSrc}
+                preload="none"
+                sx={{ width: '100%' }}
+                onPlay={() => {
+                  setAudioPlaying(true)
+                  const audio = audioRef.current
+                  if (audio && audio.currentTime < 1) onStarted?.()
+                }}
+                onPause={() => setAudioPlaying(false)}
+                onEnded={() => {
+                  setAudioPlaying(false)
+                  if (audioRef.current) audioRef.current.currentTime = 0
+                  onEnded?.()
+                }}
+              />
+            </>
           )}
           {nextTitle && (
             <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
@@ -304,21 +379,51 @@ function PlaylistRow({
 function AddSongDialog({ open, onClose, onAdd }: {
   open: boolean
   onClose: () => void
-  onAdd: (title: string, url: string) => Promise<void>
+  onAdd: (title: string, url: string, mp3File?: File) => Promise<void>
 }) {
   const [title, setTitle] = useState('')
+  const [source, setSource] = useState<'link' | 'mp3'>('link')
   const [url, setUrl] = useState('')
+  const [mp3File, setMp3File] = useState<File | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  const canSubmit = Boolean(title.trim()) && (source === 'link' ? Boolean(url.trim()) : Boolean(mp3File))
+
+  const reset = () => {
+    setTitle('')
+    setSource('link')
+    setUrl('')
+    setMp3File(null)
+    setError(null)
+  }
+
+  const handleFile = (file: File | undefined) => {
+    if (fileInputRef.current) fileInputRef.current.value = ''
+    if (!file) return
+    const validationError = validateMp3File(file)
+    if (validationError) {
+      setError(validationError)
+      setMp3File(null)
+      return
+    }
+    setError(null)
+    setMp3File(file)
+    if (!title.trim()) setTitle(file.name.replace(/\.mp3$/i, ''))
+  }
 
   const handleAdd = async () => {
-    if (!title.trim() || !url.trim()) return
+    if (!canSubmit) return
     setSaving(true)
     setError(null)
     try {
-      await onAdd(title, url)
-      setTitle('')
-      setUrl('')
+      if (source === 'link') {
+        await onAdd(title, url)
+      } else {
+        await onAdd(title, '', mp3File!)
+      }
+      reset()
       onClose()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Kunne ikke legge til sang.')
@@ -329,9 +434,7 @@ function AddSongDialog({ open, onClose, onAdd }: {
 
   const handleClose = () => {
     if (saving) return
-    setTitle('')
-    setUrl('')
-    setError(null)
+    reset()
     onClose()
   }
 
@@ -348,24 +451,67 @@ function AddSongDialog({ open, onClose, onAdd }: {
             size="small"
             fullWidth
           />
-          <TextField
-            label="URL til lydfil fra suno.com"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') void handleAdd() }}
-            disabled={saving}
-            size="small"
+          <ToggleButtonGroup
+            value={source}
+            exclusive
             fullWidth
-            placeholder="https://suno.com/song/... eller direkte .mp3-lenke"
-          />
+            size="small"
+            color="primary"
+            disabled={saving}
+            onChange={(_, value: 'link' | 'mp3' | null) => {
+              if (value) {
+                setSource(value)
+                setError(null)
+              }
+            }}
+          >
+            <ToggleButton value="link">Lenke</ToggleButton>
+            <ToggleButton value="mp3">Last opp mp3</ToggleButton>
+          </ToggleButtonGroup>
+          {source === 'link' ? (
+            <TextField
+              label="URL til lydfil fra suno.com"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') void handleAdd() }}
+              disabled={saving}
+              size="small"
+              fullWidth
+              placeholder="https://suno.com/song/... eller direkte .mp3-lenke"
+            />
+          ) : (
+            <Stack spacing={1}>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".mp3,audio/mpeg"
+                hidden
+                onChange={(e) => { handleFile(e.target.files?.[0]) }}
+              />
+              <Button
+                variant="outlined"
+                startIcon={<UploadFileRoundedIcon />}
+                onClick={() => fileInputRef.current?.click()}
+                disabled={saving}
+              >
+                {mp3File ? 'Velg en annen fil' : 'Velg mp3-fil'}
+              </Button>
+              {mp3File && (
+                <Typography variant="body2" color="text.secondary" noWrap>
+                  {mp3File.name} ({(mp3File.size / 1024 / 1024).toFixed(1)} MB)
+                </Typography>
+              )}
+            </Stack>
+          )}
           {error && <Alert severity="error">{error}</Alert>}
+          {saving && source === 'mp3' && <LinearProgress />}
           <Button
             variant="contained"
             startIcon={<AddRoundedIcon />}
             onClick={() => void handleAdd()}
-            disabled={saving || !title.trim() || !url.trim()}
+            disabled={saving || !canSubmit}
           >
-            {saving ? 'Legger til...' : 'Legg til sang'}
+            {saving ? (source === 'mp3' ? 'Laster opp...' : 'Legger til...') : 'Legg til sang'}
           </Button>
         </Stack>
       </DialogContent>
@@ -387,6 +533,7 @@ export function SangerPage() {
 
   const canEdit = Boolean(profile?.roles.some((r) => r === UserRole.ADMIN || r === UserRole.TRENER || r === UserRole.KAMPLEDER))
   const canViewStats = Boolean(profile?.roles.some((r) => r === UserRole.TRENER || r === UserRole.ADMIN))
+  const canUploadMp3 = canViewStats
 
   const resolveUserName = (uid?: string) => {
     if (!uid) return undefined
@@ -395,7 +542,7 @@ export function SangerPage() {
   }
 
   const teamsWithSong = teams
-    .filter((t) => t.songUrl && !t.retired)
+    .filter((t) => hasTeamSong(t) && !t.retired)
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
   const sortedSongs = [...songs].sort((a, b) => a.createdAt.localeCompare(b.createdAt))
 
@@ -470,7 +617,8 @@ export function SangerPage() {
                 {index > 0 && <Divider />}
                 <PlaylistRow
                   title={team.songTitle || team.name}
-                  url={team.songUrl!}
+                  url={team.songUrl ?? ''}
+                  mp3Url={team.songMp3Url}
                   playCount={team.songPlayCount ?? 0}
                   addedByName={resolveUserName(team.songAddedBy)}
                   isActive={activeItem?.type === 'official' && activeItem?.index === index}
@@ -480,6 +628,7 @@ export function SangerPage() {
                     if (profile?.uid) void incrementUserSongPlay(profile.uid, team.id)
                   }}
                   onEnded={() => playNext('official', index)}
+                  onUploadMp3={canUploadMp3 && !team.songMp3Url ? (file) => attachMp3ToTeamSong(team.id, file) : undefined}
                   onPlayCountClick={canViewStats ? () => openTeamSongModal(team) : undefined}
                   nextTitle={getNextTitle('official', index)}
                 />
@@ -499,6 +648,7 @@ export function SangerPage() {
                 <PlaylistRow
                   title={song.title}
                   url={song.url}
+                  mp3Url={song.mp3Url}
                   playCount={song.playCount ?? 0}
                   addedByName={resolveUserName(song.addedBy)}
                   isActive={activeItem?.type === 'other' && activeItem?.index === index}
@@ -506,6 +656,7 @@ export function SangerPage() {
                   onStarted={() => void incrementSongPlayCount(song.id, profile?.uid)}
                   onEnded={() => playNext('other', index)}
                   onDelete={canEdit ? () => setDeleteConfirmSong(song) : undefined}
+                  onUploadMp3={canUploadMp3 && !song.mp3Url ? (file) => attachMp3ToSong(song.id, file) : undefined}
                   onPlayCountClick={canViewStats ? () => openSongModal(song) : undefined}
                   nextTitle={getNextTitle('other', index)}
                 />
@@ -554,7 +705,7 @@ export function SangerPage() {
       <AddSongDialog
         open={addDialogOpen}
         onClose={() => setAddDialogOpen(false)}
-        onAdd={async (title, url) => { await addSong(title, url, profile?.uid) }}
+        onAdd={async (title, url, mp3File) => { await addSong(title, url, profile?.uid, mp3File) }}
       />
 
       <Dialog open={Boolean(deleteConfirmSong)} onClose={() => setDeleteConfirmSong(null)} maxWidth="xs" fullWidth>
@@ -569,7 +720,7 @@ export function SangerPage() {
           <Button
             color="error"
             onClick={() => {
-              if (deleteConfirmSong) void deleteSong(deleteConfirmSong.id)
+              if (deleteConfirmSong) void deleteSong(deleteConfirmSong)
               setDeleteConfirmSong(null)
             }}
           >

@@ -32,6 +32,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useCollection } from '../hooks/useRealtimeDatabase'
 import { MatchEventType, MatchRecord, MatchStatus, TeamRecord, TeamType, UserProfile, UserRole } from '../types/domain'
+import { hasTeamSong } from '../utils/songUrl'
 
 function StatCard({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
   return (
@@ -229,7 +230,7 @@ export function StatsPage() {
         </Grid>
       </Grid>
 
-      {selectedTeam?.songUrl && (
+      {selectedTeam && hasTeamSong(selectedTeam) && (
         <StatCard title={`Lagsangavspillinger – ${selectedTeam.songTitle || 'Lagssang'}`} icon={<MusicNoteRoundedIcon color="primary" />}>
           <Stack direction="row" spacing={1} sx={{ alignItems: 'baseline' }}>
             <Typography variant="h3" color="primary.main">{selectedTeam.songPlayCount ?? 0}</Typography>
